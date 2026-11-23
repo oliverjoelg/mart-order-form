@@ -79,7 +79,9 @@ function RoundCard({ round, run }: { round: AdminRound; run: Run }) {
   const [intro, setIntro] = useState(f?.intro ?? '')
   const [cap, setCap] = useState(f?.item_cap ?? 6)
   const [nameMax, setNameMax] = useState(f?.name_max ?? 12)
+  const [teamOnly, setTeamOnly] = useState(f?.team_only ?? false)
   useEffect(() => {
+    setTeamOnly(round.form?.team_only ?? false)
     setTitle(round.form?.title ?? '')
     setIntro(round.form?.intro ?? '')
     setCap(round.form?.item_cap ?? 6)
@@ -93,12 +95,20 @@ function RoundCard({ round, run }: { round: AdminRound; run: Run }) {
           <b>{round.name}</b>
           <div className="muted small">{round.orders} order{round.orders === 1 ? '' : 's'} from the form</div>
         </div>
-        <span className={open ? 'badge ok' : 'badge'}>{open ? 'Open' : 'Closed'}</span>
+        <span className={open ? 'badge ok' : 'badge'}>{open ? (f?.team_only ? 'Open · team only' : 'Open') : 'Closed'}</span>
       </div>
       <button type="button" className={`btn ${open ? '' : 'primary'}`}
         onClick={() => void run(() => api.admin.setOpen(round.campaign_id, !open), open ? 'Form closed' : 'Form open (any other round was closed)')}>
         {open ? 'Close the form' : 'Open the form for this round'}
       </button>
+      <label className="toggle">
+        <input type="checkbox" checked={teamOnly} onChange={(e) => setTeamOnly(e.target.checked)} /> MART team only
+      </label>
+      <p className="note">
+        {teamOnly
+          ? 'Only people on the MART team list (MART Orders → Team) can see and order in this round, e.g. for a members’ price. Everyone else sees “open for the MART team only”.'
+          : 'Every @mdi.ac.in student can order in this round.'}
+      </p>
       <Field label="Title on the form" htmlFor="a-title" hint={`Empty = “${round.name}”`}>
         <input id="a-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
       </Field>
@@ -115,7 +125,7 @@ function RoundCard({ round, run }: { round: AdminRound; run: Run }) {
       </div>
       <button type="button" className="btn"
         onClick={() => void run(() => api.admin.saveRound(round.campaign_id, {
-          title: title.trim() || null, intro: intro.trim() || null, item_cap: Math.min(6, Math.max(1, cap || 6)), name_max: Math.min(30, Math.max(1, nameMax || 12)),
+          title: title.trim() || null, intro: intro.trim() || null, team_only: teamOnly, item_cap: Math.min(6, Math.max(1, cap || 6)), name_max: Math.min(30, Math.max(1, nameMax || 12)),
         }), 'Saved')}>
         Save round settings
       </button>

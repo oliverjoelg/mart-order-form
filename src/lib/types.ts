@@ -10,6 +10,8 @@ export interface FormRound {
   sections: string[]
   print_batches: string[]
   name_max: number
+  /** only active MART team members can see and order in this round */
+  team_only: boolean
 }
 
 export interface FormProduct {
@@ -45,6 +47,8 @@ export interface OrderForm {
   qr: PaymentQr | null
   me: Partial<StudentDetails> | null
   email: string
+  /** a MART-team-only round is open, and this user is not on the team (so `round` is null) */
+  team_only_round_open: boolean
   is_form_admin: boolean
 }
 
@@ -91,6 +95,7 @@ export interface AdminFormRound {
   intro: string | null
   item_cap: number
   name_max: number
+  team_only: boolean
 }
 
 export interface AdminProduct {

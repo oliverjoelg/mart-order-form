@@ -34,7 +34,7 @@ export function createDemoApi(): Api {
   const campaignId = 'demo-round'
   const round = {
     campaign_id: campaignId, is_open: true, title: 'Batch Tees 2026', intro: 'Orders close Friday 6 pm. Collect from MART when your item is ready.',
-    item_cap: 6, name_max: 12,
+    item_cap: 6, name_max: 12, team_only: false,
     student_batches: ["PG'24", "PG'25", "PG'26"], courses: ['PGDM', 'PGDM-HRM', 'PGDM-IB', 'PGDM-BFS', 'PGDM-BN'],
     sections: ['A', 'B', 'C', 'D', 'E', 'F', 'NA'], print_batches: ["PG'24", "PG'25", "PG'26"],
   }
@@ -99,6 +99,7 @@ export function createDemoApi(): Api {
         qr: active ? { id: active.id, payee_name: active.payee_name, upi_id: active.upi_id, image_path: active.image_path } : null,
         me: profile,
         email: me.email,
+        team_only_round_open: false, // the demo user counts as a MART team member
         is_form_admin: true,
       }
     },

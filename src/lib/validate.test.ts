@@ -6,7 +6,7 @@ import type { FormProduct, FormRound } from './types'
 
 const round: FormRound = {
   campaign_id: 'c', title: 'T', intro: null, item_cap: 6, student_batches: ["PG'26"], courses: ['PGDM'],
-  sections: ['A', 'NA'], print_batches: ["PG'26"], name_max: 12,
+  sections: ['A', 'NA'], print_batches: ["PG'26"], name_max: 12, team_only: false,
 }
 const navy: FormProduct = {
   id: 'p', name: 'Navy', colour: 'Navy Blue', price_inr: 699, sizes: ['XXS', 'M'], description: null, photo_paths: [], allow_custom_size: true,

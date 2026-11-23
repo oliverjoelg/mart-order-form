@@ -192,6 +192,7 @@ function DetailsStep({ form, details, setDetails, touched, onNext }: {
     <section className="panel stack">
       <div className="step-head">
         <span className="eyebrow">{round.title}</span>
+        {round.team_only && <span className="badge ok">MART team round · only team members can order</span>}
         <h1>Wear the batch.</h1>
         {round.intro && <p className="lede">{round.intro}</p>}
       </div>

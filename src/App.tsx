@@ -124,7 +124,12 @@ function Shell({ api }: { api: Api }) {
         ) : !form.round ? (
           <section className="panel stack">
             <h2>Orders are closed right now</h2>
-            <p className="lede">Watch the MART group for the next round. Your past orders are under My orders.</p>
+            <p className="lede">
+              {form.team_only_round_open
+                ? 'Orders are open for the MART team only at the moment. Watch the MART group for when they open to everyone.'
+                : 'Watch the MART group for the next round.'}{' '}
+              Your past orders are under My orders.
+            </p>
           </section>
         ) : (
           <Order form={form} user={user} onDone={(r) => setPlaced(r.order_id)} />
