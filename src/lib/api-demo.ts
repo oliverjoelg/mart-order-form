@@ -172,10 +172,8 @@ export function createDemoApi(): Api {
       async saveProduct(id, patch) {
         await delay()
         const p = products.find((x) => x.id === id) ?? fail('Unknown product')
-        if (patch.price_inr !== undefined) p.price_inr = patch.price_inr
-        if (patch.sizes) p.sizes = patch.sizes.map((s) => s.trim().toUpperCase()).filter(Boolean)
-        const { price_inr: _a, sizes: _b, ...rest } = patch
-        Object.assign(p.form, rest)
+        if ('price_inr' in patch || 'sizes' in patch) fail('Prices, sizes and names are changed in MART Orders, not on the order form')
+        Object.assign(p.form, patch)
       },
       async uploadAsset(folder, file) {
         await delay(300)

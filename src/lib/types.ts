@@ -123,9 +123,8 @@ export interface AdminState {
   qrs: AdminQr[]
 }
 
+/** Form-only display settings. Price, sizes and names are edited in MART Orders only. */
 export interface ProductPatch {
-  price_inr?: number
-  sizes?: string[]
   shown?: boolean
   description?: string | null
   photo_paths?: string[]

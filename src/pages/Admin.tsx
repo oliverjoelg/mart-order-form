@@ -44,7 +44,7 @@ export default function Admin() {
       <div className="step-head">
         <span className="eyebrow">Form admin</span>
         <h2>Order form settings</h2>
-        <p className="lede">Changes show on the form straight away. New sales rounds and products are created in MART Orders.</p>
+        <p className="lede">These settings only change what the form shows. Products, prices and sizes are set in MART Orders (Products page); the form reads them from there.</p>
       </div>
 
       <Field label="Sales round" htmlFor="a-round">
@@ -126,14 +126,11 @@ function RoundCard({ round, run }: { round: AdminRound; run: Run }) {
 function ProductCard({ p, run }: { p: AdminProduct; run: Run }) {
   const api = useApi()
   const toast = useToast()
-  const [price, setPrice] = useState(String(p.price_inr))
-  const [sizes, setSizes] = useState(p.sizes.join(', '))
   const [desc, setDesc] = useState(p.form?.description ?? '')
   const [shown, setShown] = useState(p.form?.shown ?? false)
   const [customOk, setCustomOk] = useState(p.form?.allow_custom_size ?? false)
   const [photos, setPhotos] = useState<string[]>(p.form?.photo_paths ?? [])
   const photo = useFileUrl('form-assets', photos[0])
-  const priceChanged = Number(price) !== p.price_inr
 
   return (
     <div className="card stack">
@@ -142,14 +139,11 @@ function ProductCard({ p, run }: { p: AdminProduct; run: Run }) {
         <span className="muted small">{p.ordered} ordered</span>
       </div>
       <label className="toggle"><input type="checkbox" checked={shown} onChange={(e) => setShown(e.target.checked)} /> Show on the form</label>
-      <div className="two">
-        <Field label="Price (₹)" htmlFor={`pr-${p.id}`} error={priceChanged && p.ordered > 0 ? `${p.ordered} already ordered at ${inr(p.price_inr)}` : null}>
-          <input id={`pr-${p.id}`} className="input" type="number" min={0} inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />
-        </Field>
-        <Field label="Sizes" htmlFor={`sz-${p.id}`} hint="In order, commas between">
-          <input id={`sz-${p.id}`} className="input upper" value={sizes} onChange={(e) => setSizes(e.target.value)} />
-        </Field>
-      </div>
+      <dl className="receipt">
+        <div className="receipt-row"><dt>Price</dt><dd>{inr(p.price_inr)}</dd></div>
+        <div className="receipt-row"><dt>Sizes</dt><dd>{p.sizes.join(' · ') || '—'}</dd></div>
+        <div className="receipt-row"><dt /><dd className="muted small">Change these in MART Orders → Products</dd></div>
+      </dl>
       <label className="toggle"><input type="checkbox" checked={customOk} onChange={(e) => setCustomOk(e.target.checked)} /> Allow “my size isn't listed”</label>
       <Field label="Description" htmlFor={`d-${p.id}`}>
         <textarea id={`d-${p.id}`} className="input" rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} />
@@ -171,14 +165,10 @@ function ProductCard({ p, run }: { p: AdminProduct; run: Run }) {
         </label>
         {photos.length > 0 && <button type="button" className="link" onClick={() => setPhotos([])}>Remove photo</button>}
       </div>
-      <button type="button" className="btn" onClick={() => {
-        const n = Number(price)
-        if (!Number.isInteger(n) || n < 0) return toast('Price must be a whole number of rupees.')
-        const list = sizes.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
-        if (!list.length) return toast('Give at least one size.')
-        if (priceChanged && p.ordered > 0 && !window.confirm(`${p.ordered} already ordered at ${inr(p.price_inr)}. Change the price to ${inr(n)} for new orders?`)) return
-        void run(() => api.admin.saveProduct(p.id, { price_inr: n, sizes: list, shown, description: desc.trim() || null, allow_custom_size: customOk, photo_paths: photos }), 'Product saved')
-      }}>Save product</button>
+      <button type="button" className="btn"
+        onClick={() => void run(() => api.admin.saveProduct(p.id, { shown, description: desc.trim() || null, allow_custom_size: customOk, photo_paths: photos }), 'Saved')}>
+        Save form settings
+      </button>
     </div>
   )
 }

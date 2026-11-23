@@ -25,7 +25,7 @@ npm run build
 |---|---|
 | `src/pages/Order.tsx` | Details → Items (shirt preview) → Payment (live QR, txn ID, screenshot) → Submit |
 | `src/pages/MyOrders.tsx` | The student's own orders: Ordered → At the vendor → Ready to collect → Collected |
-| `src/pages/Admin.tsx` | Form admins (max 2): open/close the round, products, prices, sizes, photos, payment QRs |
+| `src/pages/Admin.tsx` | Form admins (max 2): open/close the round, which products show, photos, descriptions, payment QRs. Prices and sizes are read-only here (set in MART Orders) |
 | `src/components/ShirtStage.tsx` | 2D front/back stand-in for the 3D shirt. Swap in the `.glb` viewer here (same props) |
 | `src/lib/api-supabase.ts` | Calls `get_order_form`, `submit_order`, `my_orders`, `form_admin_*`, Storage |
 | `src/lib/api-demo.ts` | In-memory backend for `dev:demo` (not in the production bundle) |
