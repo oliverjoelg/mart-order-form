@@ -26,7 +26,7 @@ npm run build
 | `src/pages/Order.tsx` | Details → Items (shirt preview) → Payment (live QR, txn ID, screenshot) → Submit |
 | `src/pages/MyOrders.tsx` | The student's own orders: Ordered → At the vendor → Ready to collect → Collected |
 | `src/pages/Admin.tsx` | Form admins (max 2): open/close the round, which products show, photos, descriptions, payment QRs. Prices and sizes are read-only here (set in MART Orders) |
-| `src/components/ShirtStage.tsx` | 2D front/back stand-in for the 3D shirt. Swap in the `.glb` viewer here (same props) |
+| `src/components/ShirtStage.tsx` | Shirt preview: 3D polo (`src/lib/shirt3d.ts`, three.js, ported from the 2026-11-20 prototype, loaded on demand) with a 2D front/back flip for phones without WebGL or with reduced motion. Swap the real `.glb` in here later (same props) |
 | `src/lib/api-supabase.ts` | Calls `get_order_form`, `submit_order`, `my_orders`, `form_admin_*`, Storage |
 | `src/lib/api-demo.ts` | In-memory backend for `dev:demo` (not in the production bundle) |
 | `src/lib/validate.ts` | Checks as you type; keep in step with `submit_order()` in the migration |
@@ -47,7 +47,7 @@ npm run build
 
 ## Still needed from Oliver
 
-- The real `.glb` shirt model, print artwork (PNG/SVG), exact colour hex codes (`src/lib/colours.ts`).
+- The real `.glb` shirt model (the 3D polo is drawn in code for now; no downloaded model, so no licence or credit needed), print artwork (PNG/SVG), exact colour hex codes (`src/lib/colours.ts`).
 - Vendor's name-print rules (font, size, max letters: now letters, spaces, `. ' -`, max 12) and
   the size chart numbers (the dashed box on the Items step).
 

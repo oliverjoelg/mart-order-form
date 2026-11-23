@@ -149,6 +149,9 @@ textarea.input { resize: vertical; }
   font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600;
 }
 .view-label { font-family: var(--font-print); color: var(--fg); }
+.shirt3d { position: absolute; inset: 0; }
+.shirt3d canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
+.shirt3d canvas:active { cursor: grabbing; }
 @media (prefers-reduced-motion: reduce) { .flipper { transition: none; } }
 
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

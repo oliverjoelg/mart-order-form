@@ -1,7 +1,20 @@
-// 2D stand-in for the 3D shirt (docs/order-form-plan.md in mart-orders: real .glb model is being made).
-// Same inputs the 3D viewer will take: colour, name, batch, and which side faces the student.
-// It also stays as the fallback for old phones / reduced motion once the 3D model arrives.
+// Shirt preview. 3D polo (ported from the 2026-11-20 prototype, see lib/shirt3d.ts) when the phone
+// can do WebGL and the student hasn't asked for reduced motion; otherwise a 2D front/back flip.
+// The real photogrammetry .glb will replace the 3D polo later with the same props.
+import { lazy, Suspense, useState } from 'react'
 import { swatch } from '../lib/colours'
+
+const Shirt3D = lazy(() => import('./Shirt3D'))
+
+function canDo3D(): boolean {
+  try {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
+    const c = document.createElement('canvas')
+    return !!(c.getContext('webgl2') || c.getContext('webgl'))
+  } catch {
+    return false
+  }
+}
 
 export type ShirtView = 'front' | 'back'
 
@@ -67,8 +80,38 @@ function Polo({ side, colour, printName, printBatch }: Omit<Props, 'view' | 'onF
 }
 
 export default function ShirtStage(p: Props) {
+  const [use3D, setUse3D] = useState(canDo3D)
+  if (!use3D) return <Flat {...p} />
   return (
     <div className="stage">
+      <Suspense fallback={<Flat {...p} bare />}>
+        <Shirt3D {...p} onFail={() => setUse3D(false)} />
+      </Suspense>
+      <div className="stage-meta">
+        <span className="view-label">{p.view === 'front' ? 'Front' : 'Back'}</span>
+        <span>Drag to turn · tap to flip</span>
+      </div>
+    </div>
+  )
+}
+
+/** 2D front/back flip (fallback, and while 3D loads) */
+function Flat(p: Props & { bare?: boolean }) {
+  if (p.bare) return <FlatFlipper {...p} />
+  return (
+    <div className="stage">
+      <FlatFlipper {...p} />
+      <div className="stage-meta">
+        <span className="view-label">{p.view === 'front' ? 'Front' : 'Back'}</span>
+        <span>Tap to turn</span>
+      </div>
+    </div>
+  )
+}
+
+function FlatFlipper(p: Props) {
+  return (
+    <>
       <button type="button" className={`flipper ${p.view === 'back' ? 'show-back' : ''}`} onClick={p.onFlip} aria-label={`Showing the ${p.view}. Tap to turn the shirt.`}>
         <span className="face front">
           <Polo side="front" colour={p.colour} printName={p.printName} printBatch={p.printBatch} />
@@ -77,10 +120,6 @@ export default function ShirtStage(p: Props) {
           <Polo side="back" colour={p.colour} printName={p.printName} printBatch={p.printBatch} />
         </span>
       </button>
-      <div className="stage-meta">
-        <span className="view-label">{p.view === 'front' ? 'Front' : 'Back'}</span>
-        <span>Tap to turn · 3D model coming</span>
-      </div>
-    </div>
+    </>
   )
 }
