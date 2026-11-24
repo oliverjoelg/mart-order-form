@@ -24,13 +24,15 @@ interface Props {
   printBatch: string
   view: ShirtView
   onFlip(): void
+  /** small stage beside the colours on phones: shorter hint */
+  compact?: boolean
 }
 
 // Polo silhouette in a 300 x 320 box: body, sleeves, collar.
 const BODY =
   'M96 30 L60 42 L14 86 L40 128 L70 110 L72 300 Q150 312 228 300 L230 110 L260 128 L286 86 L240 42 L204 30 Q150 58 96 30 Z'
 
-function Polo({ side, colour, printName, printBatch }: Omit<Props, 'view' | 'onFlip'> & { side: ShirtView }) {
+export function Polo({ side, colour, printName, printBatch }: Omit<Props, 'view' | 'onFlip' | 'compact'> & { side: ShirtView }) {
   const s = swatch(colour)
   const year = printBatch.replace(/\D/g, '') || '26'
   return (
@@ -79,9 +81,9 @@ function Polo({ side, colour, printName, printBatch }: Omit<Props, 'view' | 'onF
   )
 }
 
-export default function ShirtStage(p: Props) {
+export default function ShirtStage({ compact, ...p }: Props) {
   const [use3D, setUse3D] = useState(canDo3D)
-  if (!use3D) return <Flat {...p} />
+  if (!use3D) return <Flat {...p} compact={compact} />
   return (
     <div className="stage">
       <Suspense fallback={<Flat {...p} bare />}>
@@ -89,27 +91,27 @@ export default function ShirtStage(p: Props) {
       </Suspense>
       <div className="stage-meta">
         <span className="view-label">{p.view === 'front' ? 'Front' : 'Back'}</span>
-        <span>Drag to turn · tap to flip</span>
+        <span>{compact ? 'Tap to flip' : 'Drag to turn · tap to flip'}</span>
       </div>
     </div>
   )
 }
 
 /** 2D front/back flip (fallback, and while 3D loads) */
-function Flat(p: Props & { bare?: boolean }) {
+function Flat({ compact, ...p }: Props & { bare?: boolean }) {
   if (p.bare) return <FlatFlipper {...p} />
   return (
     <div className="stage">
       <FlatFlipper {...p} />
       <div className="stage-meta">
         <span className="view-label">{p.view === 'front' ? 'Front' : 'Back'}</span>
-        <span>Tap to turn</span>
+        <span>{compact ? 'Tap to flip' : 'Tap to turn'}</span>
       </div>
     </div>
   )
 }
 
-function FlatFlipper(p: Props) {
+function FlatFlipper(p: Omit<Props, 'compact'> & { bare?: boolean }) {
   return (
     <>
       <button type="button" className={`flipper ${p.view === 'back' ? 'show-back' : ''}`} onClick={p.onFlip} aria-label={`Showing the ${p.view}. Tap to turn the shirt.`}>
