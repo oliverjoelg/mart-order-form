@@ -69,3 +69,12 @@ describe('transaction ID', () => {
     expect(txnError('12-34')).not.toBeNull()
   })
 })
+
+describe('print colour', async () => {
+  const { swatch } = await import('./colours')
+  it('is dark on light or unknown fabric and light on dark fabric', () => {
+    expect(swatch('Grey').ink).toBe('#141a2a')
+    expect(swatch('Some New Colour').ink).toBe('#141a2a')
+    expect(swatch('Navy Blue').ink).toBe('#eef1f7')
+  })
+})

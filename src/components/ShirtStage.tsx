@@ -24,6 +24,10 @@ interface Props {
   printBatch: string
   view: ShirtView
   onFlip(): void
+  /** live turn angle for the 3D shirt (radians; 0 = front, PI = back), e.g. from scrolling */
+  getAngle?: () => number
+  /** what the corner label says (Front / Side / Back); defaults to the view */
+  label?: string
 }
 
 // Polo silhouette in a 300 x 320 box: body, sleeves, collar.
@@ -88,7 +92,7 @@ export default function ShirtStage(p: Props) {
         <Shirt3D {...p} onFail={() => setUse3D(false)} />
       </Suspense>
       <div className="stage-meta">
-        <span className="view-label">{p.view === 'front' ? 'Front' : 'Back'}</span>
+        <span className="view-label">{p.label ?? (p.view === 'front' ? 'Front' : 'Back')}</span>
         <span>Drag to turn · tap to flip</span>
       </div>
     </div>

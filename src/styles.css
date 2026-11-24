@@ -63,7 +63,9 @@ img { max-width: 100%; }
 }
 .tabs button[aria-current='page'] { color: var(--fg); border-bottom-color: var(--accent); }
 
-.main { max-width: 720px; margin: 0 auto; padding-bottom: calc(48px + env(safe-area-inset-bottom)); }
+.main { padding-bottom: calc(48px + env(safe-area-inset-bottom)); }
+.main > .panel, .order > .panel, .order > .progress { max-width: 680px; margin-inline: auto; }
+.tabs { justify-content: center; }
 .panel { padding: 20px 16px; }
 .stack { display: flex; flex-direction: column; gap: 14px; }
 .step-head { display: flex; flex-direction: column; gap: 6px; }
@@ -125,7 +127,7 @@ textarea.input { resize: vertical; }
 
 /* items step: sticky shirt on phones, beside the form on wide screens */
 .stage-wrap {
-  position: sticky; top: calc(48px + env(safe-area-inset-top)); z-index: 20; height: 38svh; min-height: 230px; max-height: 380px;
+  position: sticky; top: calc(48px + env(safe-area-inset-top)); z-index: 20; height: 46svh; min-height: 280px;
   background: radial-gradient(120% 90% at 50% 38%, var(--stage-1) 0%, var(--stage-2) 100%);
   border-bottom: 1px solid var(--line);
 }
@@ -236,9 +238,18 @@ textarea.input { resize: vertical; }
 .spin { width: 18px; height: 18px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; display: inline-block; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* items step: one big section per choice, like the prototype; the shirt turns as you scroll */
+.steps { padding: 8px 16px 30vh; }
+.step { min-height: 62svh; padding-block: 32px; display: flex; flex-direction: column; gap: 16px; max-width: 520px; margin-inline: auto; }
+.step-order { min-height: 50svh; }
+.step h2 { font-size: clamp(26px, 6vw, 36px); }
+
 @media (min-width: 900px) {
-  .main { max-width: 1100px; }
-  .items-step { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
-  .items-step .stage-wrap { height: calc(100svh - 110px); max-height: none; top: 60px; border: 0; border-radius: 16px; margin: 16px; }
-  .order > .panel { max-width: 640px; }
+  .items-step { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
+  .items-step .stage-wrap {
+    height: calc(100svh - 48px - env(safe-area-inset-top)); border-bottom: 0; border-right: 1px solid var(--line);
+  }
+  .steps { padding: 0 32px 30vh 48px; }
+  .step { min-height: 78svh; justify-content: center; margin-inline: 0; }
+  .step-order { min-height: 60svh; }
 }

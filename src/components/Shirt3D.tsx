@@ -9,12 +9,13 @@ interface Props {
   printBatch: string
   view: ShirtView
   onFlip(): void
+  getAngle?: () => number
   /** WebGL failed after all: show the 2D shirt instead */
   onFail(): void
 }
 
 /** Loaded on demand (three.js is ~150 KB gzipped), so the form opens fast. */
-export default function Shirt3D({ colour, printName, printBatch, view, onFlip, onFail }: Props) {
+export default function Shirt3D({ colour, printName, printBatch, view, onFlip, onFail, getAngle }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const scene = useRef<ShirtScene | null>(null)
@@ -40,9 +41,18 @@ export default function Shirt3D({ colour, printName, printBatch, view, onFlip, o
     scene.current?.update({ swatch: swatch(colour), name: printName, batch: printBatch })
   }, [colour, printName, printBatch])
 
+  // follow the live angle (scrolling) every frame, or simply front/back
+  const angleSrc = useRef<() => number>(() => 0)
+  angleSrc.current = getAngle ?? (() => (view === 'back' ? Math.PI : 0))
   useEffect(() => {
-    scene.current?.setAngle(view === 'back' ? Math.PI : 0)
-  }, [view])
+    let raf = 0
+    const tick = () => {
+      scene.current?.setAngle(angleSrc.current())
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
 
   // a tap (not a drag) turns the shirt round
   const downAt = useRef<{ x: number; y: number } | null>(null)

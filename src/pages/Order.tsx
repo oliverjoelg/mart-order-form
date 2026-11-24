@@ -76,7 +76,8 @@ export default function Order({ form, user, onDone }: { form: OrderForm; user: A
     setError(null)
     setTouched(false)
     setStep(s)
-    requestAnimationFrame(() => top.current?.scrollIntoView({ block: 'start' }))
+    // the items step places itself (shirt under the top bar); other steps start at the top
+    if (s !== 'items') requestAnimationFrame(() => top.current?.scrollIntoView({ block: 'start' }))
   }
 
   const total = cart.reduce((s, c) => s + (form.products.find((p) => p.id === c.product_id)?.price_inr ?? 0), 0)
@@ -223,6 +224,27 @@ function DetailsStep({ form, details, setDetails, touched, onNext }: {
 }
 
 // ---------------------------------------------------------------------------
+// Items step, laid out like the 2026-11-20 prototype: the shirt stays put (left half on wide
+// screens, top on phones) and turns as the student scrolls through the sections beside it:
+// colour (front), size (side), name (back), check (all the way round), then the order so far.
+const SECTIONS = [
+  { key: 'colour', angle: 0.35 },
+  { key: 'size', angle: 0.85 }, // three-quarter view (straight side-on looks into the sleeve)
+  { key: 'name', angle: Math.PI },
+  { key: 'check', angle: Math.PI * 2 },
+  { key: 'order', angle: Math.PI * 2 },
+] as const
+
+const smoothstep = (t: number) => {
+  t = Math.max(0, Math.min(1, t))
+  return t * t * (3 - 2 * t)
+}
+
+function sideOf(a: number): 'Front' | 'Side' | 'Back' {
+  const n = ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)
+  return n < 0.6 || n > 5.7 ? 'Front' : n > 2.5 && n < 3.8 ? 'Back' : 'Side'
+}
+
 function ItemsStep({ form, cap, cart, setCart, onBack, onNext }: {
   form: OrderForm; cap: number; cart: CartItem[]; setCart: Dispatch<SetStateAction<CartItem[]>>; onBack(): void; onNext(): void
 }) {
@@ -236,17 +258,75 @@ function ItemsStep({ form, cap, cart, setCart, onBack, onNext }: {
   const [name, setName] = useState('')
   const [noName, setNoName] = useState(false)
   const [batch, setBatch] = useState(round.print_batches[round.print_batches.length - 1] ?? '')
-  const [view, setView] = useState<ShirtView>('front')
   const [nameWarn, setNameWarn] = useState<string | null>(null)
   const photo = useFileUrl('form-assets', product?.photo_paths[0])
   const full = cart.length >= cap
+
+  // --- turning the shirt: scroll position -> angle (read by the 3D view every frame)
+  const sectionEls = useRef<(HTMLElement | null)[]>([])
+  const stageEl = useRef<HTMLDivElement>(null)
+  const scrollAngle = useRef<number>(SECTIONS[0].angle)
+  const flipped = useRef(false) // a tap on the shirt turns it half round
+  const nameFocus = useRef(false) // typing the name shows the back
+  const [label, setLabel] = useState<'Front' | 'Side' | 'Back'>('Front')
+  const angle = () => (nameFocus.current ? Math.PI : scrollAngle.current + (flipped.current ? Math.PI : 0))
+  const refreshLabel = () => setLabel(sideOf(angle()))
+
+  useEffect(() => {
+    let raf = 0
+    const compute = () => {
+      raf = 0
+      const vh = window.innerHeight
+      const sr = stageEl.current?.getBoundingClientRect()
+      const sideBySide = !!sr && sr.width < window.innerWidth * 0.8
+      // the point on screen that "reads" the sections: middle of the screen beside the shirt,
+      // or a little below the sticky shirt on phones
+      const anchor = sideBySide || !sr ? vh * 0.5 : sr.bottom + (vh - sr.bottom) * 0.4
+      const pts = sectionEls.current
+        .map((el, i) => (el ? { y: el.getBoundingClientRect().top + Math.min(el.offsetHeight, vh) * 0.3, a: SECTIONS[i].angle } : null))
+        .filter((p): p is { y: number; a: number } => !!p)
+      if (!pts.length) return
+      let a = pts[pts.length - 1].a
+      if (anchor <= pts[0].y) a = pts[0].a
+      else
+        for (let i = 0; i < pts.length - 1; i++) {
+          if (anchor < pts[i + 1].y) {
+            a = pts[i].a + (pts[i + 1].a - pts[i].a) * smoothstep((anchor - pts[i].y) / (pts[i + 1].y - pts[i].y))
+            break
+          }
+        }
+      scrollAngle.current = a
+      refreshLabel()
+    }
+    const on = () => {
+      if (!raf) raf = requestAnimationFrame(compute)
+    }
+    // like the prototype: the shirt starts right under the top bar (the tabs and step bar are one
+    // short scroll up), so the full-height shirt isn't cut off at the bottom
+    const top = stageEl.current?.closest('.items-step')?.getBoundingClientRect().top
+    if (top !== undefined) window.scrollBy({ top: top - (document.querySelector('.topbar')?.getBoundingClientRect().height ?? 48) })
+    compute()
+    window.addEventListener('scroll', on, { passive: true })
+    window.addEventListener('resize', on)
+    return () => {
+      window.removeEventListener('scroll', on)
+      window.removeEventListener('resize', on)
+      cancelAnimationFrame(raf)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const goTo = (key: (typeof SECTIONS)[number]['key']) =>
+    sectionEls.current[SECTIONS.findIndex((s) => s.key === key)]?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    })
 
   if (!product) return <section className="panel"><p>No items are on sale right now.</p></section>
 
   const pickProduct = (id: string) => {
     const p = form.products.find((x) => x.id === id)!
     setProductId(id)
-    setView('front')
     if (!useCustom && !p.sizes.includes(size)) {
       const next = p.sizes.includes('M') ? 'M' : p.sizes[0] ?? ''
       toast(`${size} isn't made in ${p.colour}, so the size is now ${next}.`)
@@ -255,14 +335,14 @@ function ItemsStep({ form, cap, cart, setCart, onBack, onNext }: {
     if (useCustom && !p.allow_custom_size) setUseCustom(false)
   }
 
+  const finalSize = useCustom ? custom.trim() : size
   const add = () => {
     if (full) return toast(`At most ${cap} items per order.`)
     if (!noName && !name.trim()) {
-      setView('back')
-      document.getElementById('f-print')?.focus()
+      goTo('name')
+      document.getElementById('f-print')?.focus({ preventScroll: true })
       return toast('Type a name for the back, or tick “No name on the back”.')
     }
-    const finalSize = useCustom ? custom.trim() : size
     if (useCustom && customSizeError(custom)) return toast(customSizeError(custom)!)
     if (!finalSize) return toast('Pick a size.')
     const pe = noName ? null : printNameError(name, round.name_max)
@@ -270,83 +350,132 @@ function ItemsStep({ form, cap, cart, setCart, onBack, onNext }: {
     if (!batch) return toast('Pick the batch to print on the back.')
     setCart((c) => [...c, { key: uid(), product_id: product.id, size: finalSize, print_name: noName ? null : name.trim(), print_batch: batch }])
     toast(`Added ${product.colour} ${finalSize}${!noName ? ` · ${name.trim()}` : ''}.`)
+    goTo('order')
+  }
+
+  const itemNo = Math.min(cart.length + 1, cap)
+  const view: ShirtView = label === 'Back' ? 'back' : 'front'
+  const ref = (i: number) => (el: HTMLElement | null) => {
+    sectionEls.current[i] = el
   }
 
   return (
     <div className="items-step">
-      <div className="stage-wrap">
-        <ShirtStage colour={product.colour} printName={noName ? '' : name.trim()} printBatch={batch} view={view} onFlip={() => setView(view === 'front' ? 'back' : 'front')} />
+      <div className="stage-wrap" ref={stageEl}>
+        <ShirtStage
+          colour={product.colour}
+          printName={noName ? '' : name.trim()}
+          printBatch={batch}
+          view={view}
+          label={label}
+          getAngle={angle}
+          onFlip={() => {
+            flipped.current = !flipped.current
+            refreshLabel()
+          }}
+        />
       </div>
-      <div className="panel stack">
-        <div className="step-head">
-          <span className="eyebrow">Step 2 of 4 · item {Math.min(cart.length + 1, cap)} of up to {cap}</span>
-          <h2>Pick a colour</h2>
-        </div>
-        <div className="choices" role="radiogroup" aria-label="Colour">
-          {form.products.map((p) => (
-            <button key={p.id} type="button" role="radio" aria-checked={p.id === product.id} aria-label={`${p.name}, ${inr(p.price_inr)}`} className="choice" onClick={() => pickProduct(p.id)}>
-              <span className="dot" style={{ background: swatch(p.colour).base }} />
-              <span className="choice-text">
-                <span className="choice-name">{p.colour}</span>
-                <span className="choice-line">{p.name.replace(p.colour, '').trim() || p.name} · {inr(p.price_inr)}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-        {(product.description || photo) && (
-          <div className="product-info">
-            {photo && <img src={photo} alt={product.name} loading="lazy" />}
-            {product.description && <p className="note">{product.description}</p>}
-          </div>
-        )}
 
-        <h3>Size</h3>
-        <Chips label="Size" options={product.sizes} value={useCustom ? '' : size} onChange={(s) => { setSize(s); setUseCustom(false); setView('front') }} />
-        {product.allow_custom_size && (
-          <label className="toggle">
-            <input type="checkbox" checked={useCustom} onChange={(e) => setUseCustom(e.target.checked)} /> My size isn't listed
-          </label>
-        )}
-        {useCustom && (
-          <Field label="Your size" htmlFor="f-custom" error={custom ? customSizeError(custom) : null} hint="e.g. Chest 38 / Length 28">
-            <input id="f-custom" className="input" value={custom} maxLength={40} onChange={(e) => setCustom(e.target.value)} />
+      <div className="steps">
+        <section className="step" ref={ref(0)}>
+          <div className="step-head">
+            <span className="eyebrow">Item {itemNo} of up to {cap} · Colour</span>
+            <h2>Pick a colour</h2>
+          </div>
+          <div className="choices" role="radiogroup" aria-label="Colour">
+            {form.products.map((p) => (
+              <button key={p.id} type="button" role="radio" aria-checked={p.id === product.id} aria-label={`${p.name}, ${inr(p.price_inr)}`} className="choice" onClick={() => pickProduct(p.id)}>
+                <span className="dot" style={{ background: swatch(p.colour).base }} />
+                <span className="choice-text">
+                  <span className="choice-name">{p.colour}</span>
+                  <span className="choice-line">{p.name.replace(p.colour, '').trim() || p.name} · {inr(p.price_inr)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          {(product.description || photo) && (
+            <div className="product-info">
+              {photo && <img src={photo} alt={product.name} loading="lazy" />}
+              {product.description && <p className="note">{product.description}</p>}
+            </div>
+          )}
+        </section>
+
+        <section className="step" ref={ref(1)}>
+          <div className="step-head">
+            <span className="eyebrow">Item {itemNo} · Size</span>
+            <h2>Pick a size</h2>
+          </div>
+          <Chips label="Size" options={product.sizes} value={useCustom ? '' : size} onChange={(s) => { setSize(s); setUseCustom(false) }} />
+          {product.allow_custom_size && (
+            <label className="toggle">
+              <input type="checkbox" checked={useCustom} onChange={(e) => setUseCustom(e.target.checked)} /> My size isn't listed
+            </label>
+          )}
+          {useCustom && (
+            <Field label="Your size" htmlFor="f-custom" error={custom ? customSizeError(custom) : null} hint="e.g. Chest 38 / Length 28">
+              <input id="f-custom" className="input" value={custom} maxLength={40} onChange={(e) => setCustom(e.target.value)} />
+            </Field>
+          )}
+          <div className="chart-slot">The size chart (chest and length in inches) goes here once the vendor sends the numbers.</div>
+        </section>
+
+        <section className="step" ref={ref(2)}>
+          <div className="step-head">
+            <span className="eyebrow">Item {itemNo} · Back print</span>
+            <h2>Your name on the back</h2>
+          </div>
+          <Field label="Name to print" htmlFor="f-print" error={nameWarn} hint={`Letters, spaces, . ' and - · up to ${round.name_max} · printed in capitals`}>
+            <div className="name-row">
+              <input id="f-print" className="input name-input" autoComplete="off" autoCapitalize="characters" spellCheck={false}
+                placeholder="YOUR NAME" value={name} disabled={noName}
+                onFocus={() => { nameFocus.current = true; refreshLabel() }}
+                onBlur={() => { nameFocus.current = false; refreshLabel() }}
+                onChange={(e) => {
+                  const clean = cleanPrintName(e.target.value, round.name_max)
+                  setNameWarn(clean !== e.target.value.toUpperCase().replace(/\s{2,}/g, ' ') ? "Only letters, spaces, . ' and - can be printed." : null)
+                  setName(clean)
+                }} />
+              <span className="counter">{name.length}/{round.name_max}</span>
+            </div>
           </Field>
-        )}
-        <div className="chart-slot">Size chart (chest and length in inches) goes here once the vendor sends the numbers.</div>
+          <label className="toggle">
+            <input type="checkbox" checked={noName} onChange={(e) => { setNoName(e.target.checked); if (e.target.checked) setName('') }} /> No name on the back
+          </label>
+          <Field label="Batch printed on the back">
+            <Chips label="Batch printed on the back" options={round.print_batches} value={batch} onChange={setBatch} />
+          </Field>
+        </section>
 
-        <h3>Name on the back</h3>
-        <Field label="Name to print" htmlFor="f-print" error={nameWarn} hint={`Letters, spaces, . ' and - · up to ${round.name_max} · printed in capitals`}>
-          <div className="name-row">
-            <input id="f-print" className="input name-input" autoComplete="off" autoCapitalize="characters" spellCheck={false}
-              placeholder="YOUR NAME" value={name} disabled={noName}
-              onFocus={() => setView('back')}
-              onChange={(e) => {
-                const clean = cleanPrintName(e.target.value, round.name_max)
-                setNameWarn(clean !== e.target.value.toUpperCase().replace(/\s{2,}/g, ' ') ? "Only letters, spaces, . ' and - can be printed." : null)
-                setName(clean)
-              }} />
-            <span className="counter">{name.length}/{round.name_max}</span>
+        <section className="step" ref={ref(3)}>
+          <div className="step-head">
+            <span className="eyebrow">Item {itemNo} · Check</span>
+            <h2>Check and add</h2>
           </div>
-        </Field>
-        <label className="toggle">
-          <input type="checkbox" checked={noName} onChange={(e) => { setNoName(e.target.checked); if (e.target.checked) setName(''); setView('back') }} /> No name on the back
-        </label>
-        <Field label="Batch printed on the back">
-          <Chips label="Batch printed on the back" options={round.print_batches} value={batch} onChange={(b) => { setBatch(b); setView('back') }} />
-        </Field>
+          <dl className="receipt">
+            <div className="receipt-row"><dt>Item</dt><dd>{product.name}</dd></div>
+            <div className="receipt-row"><dt>Size</dt><dd>{finalSize || 'Not picked yet'}</dd></div>
+            <div className="receipt-row"><dt>Name on back</dt><dd>{noName ? 'No name' : name.trim() || 'Not filled in yet'}</dd></div>
+            <div className="receipt-row"><dt>Batch on back</dt><dd>{batch}</dd></div>
+            <div className="receipt-row receipt-total"><dt>Price</dt><dd>{inr(product.price_inr)}</dd></div>
+          </dl>
+          <div className="actions">
+            <button type="button" className="btn primary" onClick={add} disabled={full}>{full ? `Order is full (${cap})` : 'Add to order'}</button>
+          </div>
+        </section>
 
-        <div className="actions">
-          <button type="button" className="btn primary" onClick={add} disabled={full}>{full ? `Order is full (${cap})` : `Add to order · ${inr(product.price_inr)}`}</button>
-        </div>
-
-        <div className="step-head">
-          <h2>Your order ({cart.length}/{cap})</h2>
-        </div>
-        {cart.length === 0 ? <p className="muted">Nothing added yet.</p> : <CartList form={form} cart={cart} onRemove={(k) => setCart((cs) => cs.filter((c) => c.key !== k))} />}
-        <div className="actions">
-          <button type="button" className="btn" onClick={onBack}>Back</button>
-          <button type="button" className="btn primary" onClick={onNext} disabled={!cart.length}>Next: payment</button>
-        </div>
+        <section className="step step-order" ref={ref(4)}>
+          <div className="step-head">
+            <span className="eyebrow">Your order</span>
+            <h2>{cart.length ? `${cart.length} item${cart.length === 1 ? '' : 's'} · ${inr(cart.reduce((s, c) => s + (form.products.find((p) => p.id === c.product_id)?.price_inr ?? 0), 0))}` : 'Nothing added yet'}</h2>
+          </div>
+          {cart.length > 0 && <CartList form={form} cart={cart} onRemove={(k) => setCart((cs) => cs.filter((c) => c.key !== k))} />}
+          <div className="actions">
+            {!full && <button type="button" className="btn" onClick={() => goTo('colour')}>{cart.length ? 'Add another item' : 'Pick an item'}</button>}
+            <button type="button" className="btn primary" onClick={onNext} disabled={!cart.length}>Next: payment</button>
+          </div>
+          <button type="button" className="link small" onClick={onBack}>← Back to your details</button>
+        </section>
       </div>
     </div>
   )
@@ -389,7 +518,7 @@ function PaymentStep({ form, user, total, txn, setTxn, shot, setShot, onBack, on
     return (
       <section className="panel stack">
         <h2>Payment isn't open yet</h2>
-        <p className="muted">MART hasn't put up a payment QR. Your order is saved on this phone; come back in a little while.</p>
+        <p className="muted">MART hasn't put up a payment QR yet. Your order so far is kept in this browser, so you can come back to it in a little while.</p>
         <div className="actions"><button type="button" className="btn" onClick={onBack}>Back</button></div>
       </section>
     )
@@ -432,7 +561,7 @@ function PaymentStep({ form, user, total, txn, setTxn, shot, setShot, onBack, on
         </div>
       </div>
       {upiLink && <a className="btn" href={upiLink}>Open my UPI app</a>}
-      <p className="note">Pay exactly {inr(total)} to this QR. Then come back here: your order is saved on this phone.</p>
+      <p className="note">Pay exactly {inr(total)} to this QR, then come back to this page. Your order so far is kept in this browser, so switching to your UPI app won't lose it. On a laptop? Scan the QR with your phone.</p>
 
       <Field label="UPI transaction ID (UTR)" htmlFor="f-txn" error={tErr} hint="12 digits in GPay / PhonePe / Paytm, under the payment details.">
         <input id="f-txn" className="input mono" inputMode="text" autoCapitalize="characters" spellCheck={false} value={txn} onChange={(e) => setTxn(e.target.value)} />
