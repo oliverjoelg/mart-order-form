@@ -60,6 +60,7 @@ body {
   font: 15px/1.55 var(--body); overflow-x: hidden; -webkit-font-smoothing: antialiased;
 }
 button, input, select, textarea { font: inherit; color: inherit; }
+.app { overflow-x: clip; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
@@ -467,6 +468,8 @@ button.line-btn:hover { background: color-mix(in srgb, var(--ink) 4%, transparen
 @keyframes ticker { to { transform: translateX(-50%); } }
 @media (min-width: 900px) {
   .login, .closed { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; padding-top: var(--s7); }
+  .hero { font-size: clamp(64px, 9.4vw, 140px); }
+  .closed .hero { font-size: clamp(56px, 7.6vw, 112px); }
   .fan { height: 460px; --numeral-size: 400px; --numeral-stroke: 3px; }
   .ticker { margin-top: var(--s6); }
 }
