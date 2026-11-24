@@ -64,7 +64,12 @@ export function createSupabaseApi(): Api {
 
     async uploadScreenshot(userId, file) {
       const path = `${userId}/${Date.now()}-${rand()}.${ext(file)}`
-      ok(await sb.storage.from('payment-screenshots').upload(path, file, { contentType: file.type, upsert: false }))
+      const res = await sb.storage.from('payment-screenshots').upload(path, file, { contentType: file.type, upsert: false })
+      // the database allows 10 screenshot uploads per student per 24 hours
+      if (res.error && /row-level security|unauthorized/i.test(res.error.message)) {
+        throw new Error("You've uploaded 10 screenshots in the last 24 hours. Use one you already picked, try again tomorrow, or contact MART.")
+      }
+      ok(res)
       return path
     },
 
