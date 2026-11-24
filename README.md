@@ -15,7 +15,7 @@ Orders go straight into the **MART Orders** Supabase project and show up there i
 npm install
 npm run dev:demo   # made-up data, no accounts; sign-in is a button; you are also a form admin
 npm run dev        # real Supabase: needs .env (copy .env.example)
-npm test           # input rules (same rules the database enforces)
+npm test           # input rules (same rules the database enforces) + order/draft logic
 npm run build
 ```
 
@@ -23,7 +23,9 @@ npm run build
 
 | Path | What |
 |---|---|
-| `src/pages/Order.tsx` | Details → Items (shirt preview) → Payment (live QR, txn ID, screenshot) → Submit |
+| `DESIGN.md` | The look: tokens (colour, type, spacing, radius, motion), layout, states. Read before changing styles |
+| `src/pages/Order.tsx` | Details (skipped when saved details are complete) → Items (one card per item, bottom bar with total) → Payment (live QR, txn ID, screenshot) → Check and submit |
+| `src/lib/order.ts` | Items being edited, the draft kept in this browser (also reads pre-redesign drafts), per-item checks. Tested in `order.test.ts` |
 | `src/pages/MyOrders.tsx` | The student's own orders: Ordered → At the vendor → Ready to collect → Collected |
 | `src/pages/Admin.tsx` | Form admins (max 2): open/close the round, which products show, photos, descriptions, payment QRs. Prices and sizes are read-only here (set in MART Orders) |
 | `src/components/ShirtStage.tsx` | Shirt preview: 3D polo (`src/lib/shirt3d.ts`, three.js, ported from the 2026-11-20 prototype, loaded on demand) with a 2D front/back flip for phones without WebGL or with reduced motion. Swap the real `.glb` in here later (same props) |

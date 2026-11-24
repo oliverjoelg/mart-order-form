@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Polo } from './components/ShirtStage'
 import { ApiCtx, Spinner, ToastProvider } from './components/ui'
 import type { Api, AuthUser } from './lib/api'
 import { friendlyError } from './lib/api'
-import type { OrderForm } from './lib/types'
+import { batchNumeral } from './lib/order'
+import type { OrderForm, SubmitResult } from './lib/types'
+import { inr } from './lib/validate'
 import Admin from './pages/Admin'
 import MyOrders from './pages/MyOrders'
 import Order from './pages/Order'
@@ -40,10 +43,11 @@ function Shell({ api }: { api: Api }) {
   const [form, setForm] = useState<OrderForm | null>(null)
   const [error, setError] = useState<string | null>(() => readRedirectError())
   const [tab, setTab] = useState<Tab>(readTab)
-  const [placed, setPlaced] = useState<string | null>(null)
+  const [placed, setPlaced] = useState<{ r: SubmitResult; batch: string } | null>(null)
 
   const refresh = useCallback(async () => {
     try {
+      setError(null)
       const u = await api.getUser()
       setUser(u)
       setForm(u ? await api.getForm() : null)
@@ -82,60 +86,61 @@ function Shell({ api }: { api: Api }) {
     window.scrollTo(0, 0)
   }
 
+  const page = user === undefined ? 'boot' : !user ? 'login' : 'app'
+
   return (
-    <>
+    <div className={`app page-${page} tab-${tab}`}>
       <header className="topbar">
-        <div className="brand">MART<span>Order form</span></div>
-        <div className="topbar-right">
-          {api.mode === 'demo' && <span className="pill">Demo</span>}
-          {user && <button type="button" className="link small" onClick={() => void api.signOut()}>Sign out</button>}
-        </div>
+        <a className="wordmark" href="#/" onClick={(e) => { e.preventDefault(); go('order') }} aria-label="MART order form, home">
+          MART{api.mode === 'demo' && <span className="demo">Demo</span>}
+        </a>
+        {user && form && (
+          <nav className="tabs" aria-label="Pages">
+            <a href="#/" aria-current={tab === 'order' ? 'page' : undefined} onClick={(e) => { e.preventDefault(); go('order') }}>Order</a>
+            <a href="#/orders" aria-current={tab === 'orders' ? 'page' : undefined} onClick={(e) => { e.preventDefault(); go('orders') }}>My orders</a>
+            {form.is_form_admin && <a href="#/admin" aria-current={tab === 'admin' ? 'page' : undefined} onClick={(e) => { e.preventDefault(); go('admin') }}>Admin</a>}
+          </nav>
+        )}
       </header>
 
-      {user && form && (
-        <nav className="tabs" aria-label="Pages">
-          <button type="button" aria-current={tab === 'order' ? 'page' : undefined} onClick={() => go('order')}>Order</button>
-          <button type="button" aria-current={tab === 'orders' ? 'page' : undefined} onClick={() => go('orders')}>My orders</button>
-          {form.is_form_admin && <button type="button" aria-current={tab === 'admin' ? 'page' : undefined} onClick={() => go('admin')}>Admin</button>}
-        </nav>
-      )}
-
-      <main className="main">
+      <main className="main" id="main">
         {user === undefined ? (
           <Spinner />
         ) : !user ? (
           <Login api={api} error={error} />
         ) : !form ? (
-          error ? <section className="panel"><p className="error">{error}</p><button type="button" className="btn" onClick={() => void refresh()}>Try again</button></section> : <Spinner />
+          error ? (
+            <section className="empty">
+              <h1>Couldn't load the form.</h1>
+              <p className="error" role="alert">{error}</p>
+              <div className="actions"><button type="button" className="btn primary" onClick={() => void refresh()}>Try again</button></div>
+            </section>
+          ) : <Spinner label="Loading the form…" />
         ) : tab === 'orders' ? (
-          <MyOrders justPlaced={placed} />
+          <MyOrders justPlaced={placed?.r.order_id} onOrder={() => go('order')} />
         ) : tab === 'admin' && form.is_form_admin ? (
           <Admin />
         ) : placed ? (
-          <section className="panel stack">
-            <span className="eyebrow">Done</span>
-            <h2>Order placed</h2>
-            <p className="lede">MART will check your payment. You'll see each item move to “Ready to collect” in My orders.</p>
-            <div className="actions">
-              <button type="button" className="btn primary" onClick={() => go('orders')}>See my orders</button>
-              <button type="button" className="btn" onClick={() => { setPlaced(null); void refresh() }}>Place another order</button>
-            </div>
-          </section>
+          <Done r={placed.r} batch={placed.batch} onOrders={() => go('orders')} onAgain={() => { setPlaced(null); void refresh() }} />
         ) : !form.round ? (
-          <section className="panel stack">
-            <h2>Orders are closed right now</h2>
-            <p className="lede">
-              {form.team_only_round_open
-                ? 'Orders are open for the MART team only at the moment. Watch the MART group for when they open to everyone.'
-                : 'Watch the MART group for the next round.'}{' '}
-              Your past orders are under My orders.
-            </p>
-          </section>
+          <Closed teamOnly={form.team_only_round_open} onOrders={() => go('orders')} />
         ) : (
-          <Order form={form} user={user} onDone={(r) => setPlaced(r.order_id)} />
+          <Order form={form} user={user} onDone={(r, batch) => { setPlaced({ r, batch }); window.scrollTo(0, 0) }} />
         )}
       </main>
-    </>
+    </div>
+  )
+}
+
+/** Three polos fanned out: the login and closed screens' picture. */
+function Fan({ name = 'YOUR NAME', batch = "PG'26" }: { name?: string; batch?: string }) {
+  return (
+    <div className="fan" aria-hidden="true">
+      <span className="numeral">{batchNumeral(batch) || '26'}</span>
+      <span className="fan-shirt l"><Polo side="back" colour="Baby Pink" printName="" printBatch={batch} /></span>
+      <span className="fan-shirt r"><Polo side="back" colour="Black" printName="" printBatch={batch} /></span>
+      <span className="fan-shirt c"><Polo side="back" colour="Navy Blue" printName={name} printBatch={batch} /></span>
+    </div>
   )
 }
 
@@ -143,29 +148,92 @@ function Login({ api, error }: { api: Api; error: string | null }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(error)
   return (
-    <section className="panel stack login">
-      <span className="eyebrow">MDI Gurgaon · MART</span>
-      <h1>Wear the batch.</h1>
-      <p className="lede">Order MART merch: pick colour and size, see your name on the back, pay by UPI. Takes about two minutes.</p>
-      {IN_APP && (
-        <p className="warn-box note">
-          You opened this inside another app. Google blocks sign-in here: tap ⋮ and choose <b>Open in Chrome</b> (or Safari).
+    <section className="login">
+      <div className="login-copy">
+        <h1 className="hero"><span>Wear</span> <span>the</span> <span>batch.</span></h1>
+        <p className="lede">MART merch for MDI Gurgaon. Pick the colour and size, put your name on the back, pay by UPI. Two minutes, start to finish.</p>
+        {IN_APP && (
+          <p className="callout">
+            You opened this inside another app, and Google blocks sign-in there. Tap ⋮ and choose <b>Open in Chrome</b> (or Safari).
+          </p>
+        )}
+        {err && <p className="error" role="alert">{err}</p>}
+        <button type="button" className="btn primary big" disabled={busy} onClick={async () => {
+          setBusy(true)
+          setErr(null)
+          try {
+            await api.signIn()
+          } catch (e) {
+            setErr(friendlyError(e))
+            setBusy(false)
+          }
+        }}>
+          <GoogleG /> {busy ? 'Opening Google…' : 'Sign in with Google'}
+        </button>
+        <p className="fineprint">Use your @mdi.ac.in account. You'll only ever see your own orders.</p>
+      </div>
+      <Fan />
+      <div className="ticker" aria-hidden="true">
+        <div className="ticker-track">
+          {Array.from({ length: 2 }, (_, k) => (
+            <span key={k}>Navy Blue <i style={{ background: '#1f2945' }} /> Baby Pink <i style={{ background: '#f0c7d1' }} /> Black <i style={{ background: '#18191b' }} /> White <i style={{ background: '#f2f2ef' }} /> Your name on the back <i /> Batch on the back <i /> </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function GoogleG() {
+  return (
+    <svg className="g" viewBox="0 0 48 48" aria-hidden="true" width="20" height="20">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  )
+}
+
+function Closed({ teamOnly, onOrders }: { teamOnly: boolean; onOrders(): void }) {
+  return (
+    <section className="closed">
+      <div className="login-copy">
+        <h1 className="hero"><span>Orders</span> <span>are</span> <span>closed.</span></h1>
+        <p className="lede">
+          {teamOnly
+            ? 'Orders are open to the MART team only right now. Watch the MART group for when they open to everyone.'
+            : 'There’s no round open right now. Watch the MART group for the next one.'}
         </p>
-      )}
-      {err && <p className="error" role="alert">{err}</p>}
-      <button type="button" className="btn primary" disabled={busy} onClick={async () => {
-        setBusy(true)
-        setErr(null)
-        try {
-          await api.signIn()
-        } catch (e) {
-          setErr(friendlyError(e))
-          setBusy(false)
-        }
-      }}>
-        {busy ? 'Opening Google…' : 'Sign in with Google'}
-      </button>
-      <p className="muted small">Use your @mdi.ac.in account. You'll only ever see your own orders.</p>
+        <div className="actions"><button type="button" className="btn ghost" onClick={onOrders}>See my orders</button></div>
+      </div>
+      <Fan name="SOON" />
+    </section>
+  )
+}
+
+function Done({ r, batch, onOrders, onAgain }: { r: SubmitResult; batch: string; onOrders(): void; onAgain(): void }) {
+  const code = r.order_id.replace(/-/g, '').slice(0, 8).toUpperCase()
+  return (
+    <section className="done-screen">
+      <div className="done-tag tag" role="status">
+        <span className="tag-hole" aria-hidden="true" />
+        <span className="tag-string" aria-hidden="true" />
+        <span className="numeral" aria-hidden="true">{batchNumeral(batch) || '✓'}</span>
+        <h1>Order placed.</h1>
+        <dl className="kv">
+          <div><dt>Order</dt><dd className="print-face">{code}</dd></div>
+          <div><dt>Items</dt><dd>{r.items}</dd></div>
+          <div className="kv-total"><dt>Paid</dt><dd>{inr(r.total_inr)}</dd></div>
+        </dl>
+      </div>
+      <div className="done-copy">
+        <p className="lede">MART checks your payment next. Each item moves to “Ready to collect” in My orders, and MART calls you when it's there.</p>
+        <div className="actions">
+          <button type="button" className="btn primary" onClick={onOrders}>See my orders</button>
+          <button type="button" className="btn ghost" onClick={onAgain}>Place another order</button>
+        </div>
+      </div>
     </section>
   )
 }

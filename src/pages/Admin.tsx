@@ -35,37 +35,43 @@ export default function Admin() {
     }
   }
 
-  if (error) return <section className="panel"><p className="error">{error}</p></section>
-  if (!state) return <Spinner />
+  if (error) return <section className="admin"><div className="empty-box"><p className="error" role="alert">{error}</p><button type="button" className="btn ghost" onClick={() => { setError(null); void load() }}>Try again</button></div></section>
+  if (!state) return <Spinner label="Loading settings…" />
   const round = state.rounds.find((r) => r.campaign_id === roundId)
 
   return (
-    <section className="panel stack">
-      <div className="step-head">
-        <span className="eyebrow">Form admin</span>
-        <h2>Order form settings</h2>
-        <p className="lede">These settings only change what the form shows. Products, prices and sizes are set in MART Orders (Products page); the form reads them from there.</p>
-      </div>
+    <section className="admin">
+      <header className="step-head">
+        <h1>Form settings</h1>
+        <p className="lede">These change only what the form shows. Products, prices and sizes are set in MART Orders (Products page); the form reads them from there.</p>
+      </header>
 
-      <Field label="Sales round" htmlFor="a-round">
-        <select id="a-round" className="input" value={roundId} onChange={(e) => setRoundId(e.target.value)}>
+      <Field label="Sales round">
+          {(a) => <select {...a} className="input" value={roundId} onChange={(e) => setRoundId(e.target.value)}>
           {state.rounds.map((r) => (
             <option key={r.campaign_id} value={r.campaign_id}>{r.name}{r.form?.is_open ? ' (open)' : ''}</option>
           ))}
-        </select>
-      </Field>
+        </select>}
+        </Field>
 
-      {round && <RoundCard round={round} run={run} />}
-      {round && round.products.length > 0 && <h3>Products</h3>}
-      {round?.products.map((p) => <ProductCard key={p.id} p={p} run={run} />)}
-
-      <h3>Payment QR</h3>
-      <p className="note">One QR is live at a time. When a UPI limit is hit, add the next person's QR and make it live. Orders started on the old QR still go through for 2 hours.</p>
-      {state.qrs.map((q) => <QrRow key={q.id} q={q} run={run} />)}
-      {state.qrs.some((q) => q.active) && (
-        <button type="button" className="btn" onClick={() => void run(() => api.admin.setActiveQr(null), 'No QR is live now')}>Take the live QR down</button>
-      )}
-      <AddQr run={run} />
+      <div className="admin-grid">
+        <div className="admin-col">
+          <h2>Round</h2>
+          {round && <RoundCard round={round} run={run} />}
+          <h2>Payment QR</h2>
+          <p className="note">One QR is live at a time. When a UPI limit is hit, add the next person's QR and make it live. Orders started on the old QR still go through for 2 hours.</p>
+          {state.qrs.map((q) => <QrRow key={q.id} q={q} run={run} />)}
+          {state.qrs.some((q) => q.active) && (
+            <button type="button" className="btn ghost" onClick={() => void run(() => api.admin.setActiveQr(null), 'No QR is live now')}>Take the live QR down</button>
+          )}
+          <AddQr run={run} />
+        </div>
+        <div className="admin-col">
+          <h2>Products</h2>
+          {round && round.products.length === 0 && <p className="note">This round has no products yet. Add them in MART Orders → Products.</p>}
+          {round?.products.map((p) => <ProductCard key={p.id} p={p} run={run} />)}
+        </div>
+      </div>
     </section>
   )
 }
@@ -93,11 +99,11 @@ function RoundCard({ round, run }: { round: AdminRound; run: Run }) {
       <div className="row-between">
         <div>
           <b>{round.name}</b>
-          <div className="muted small">{round.orders} order{round.orders === 1 ? '' : 's'} from the form</div>
+          <div className="fineprint">{round.orders} order{round.orders === 1 ? '' : 's'} from the form</div>
         </div>
         <span className={open ? 'badge ok' : 'badge'}>{open ? (f?.team_only ? 'Open · team only' : 'Open') : 'Closed'}</span>
       </div>
-      <button type="button" className={`btn ${open ? '' : 'primary'}`}
+      <button type="button" className={`btn ${open ? 'ghost' : 'primary'}`}
         onClick={() => void run(() => api.admin.setOpen(round.campaign_id, !open), open ? 'Form closed' : 'Form open (any other round was closed)')}>
         {open ? 'Close the form' : 'Open the form for this round'}
       </button>
@@ -109,21 +115,21 @@ function RoundCard({ round, run }: { round: AdminRound; run: Run }) {
           ? 'Only people on the MART team list (MART Orders → Team) can see and order in this round, e.g. for a members’ price. Everyone else sees “open for the MART team only”.'
           : 'Every @mdi.ac.in student can order in this round.'}
       </p>
-      <Field label="Title on the form" htmlFor="a-title" hint={`Empty = “${round.name}”`}>
-        <input id="a-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
-      </Field>
-      <Field label="Note under the title" htmlFor="a-intro" hint="e.g. when orders close, where to collect">
-        <textarea id="a-intro" className="input" rows={2} value={intro} onChange={(e) => setIntro(e.target.value)} />
-      </Field>
-      <div className="two">
-        <Field label="Items per order (max 6)" htmlFor="a-cap">
-          <input id="a-cap" className="input" type="number" min={1} max={6} value={cap} onChange={(e) => setCap(Number(e.target.value))} />
+      <Field label="Title on the form" hint={`Empty = “${round.name}”`}>
+          {(a) => <input {...a} className="input" value={title} onChange={(e) => setTitle(e.target.value)} />}
         </Field>
-        <Field label="Letters in back name" htmlFor="a-nm">
-          <input id="a-nm" className="input" type="number" min={1} max={30} value={nameMax} onChange={(e) => setNameMax(Number(e.target.value))} />
+      <Field label="Note under the title" hint="e.g. when orders close, where to collect">
+          {(a) => <textarea {...a} className="input" rows={2} value={intro} onChange={(e) => setIntro(e.target.value)} />}
+        </Field>
+      <div className="two">
+        <Field label="Items per order (max 6)">
+          {(a) => <input {...a} className="input" type="number" min={1} max={6} value={cap} onChange={(e) => setCap(Number(e.target.value))} />}
+        </Field>
+        <Field label="Letters in back name">
+          {(a) => <input {...a} className="input" type="number" min={1} max={30} value={nameMax} onChange={(e) => setNameMax(Number(e.target.value))} />}
         </Field>
       </div>
-      <button type="button" className="btn"
+      <button type="button" className="btn ghost"
         onClick={() => void run(() => api.admin.saveRound(round.campaign_id, {
           title: title.trim() || null, intro: intro.trim() || null, team_only: teamOnly, item_cap: Math.min(6, Math.max(1, cap || 6)), name_max: Math.min(30, Math.max(1, nameMax || 12)),
         }), 'Saved')}>
@@ -145,19 +151,19 @@ function ProductCard({ p, run }: { p: AdminProduct; run: Run }) {
   return (
     <div className="card stack">
       <div className="row-between">
-        <span className="row"><span className="dot sm" style={{ background: swatch(p.colour).base }} /> <b>{p.name}</b></span>
-        <span className="muted small">{p.ordered} ordered</span>
+        <span className="row"><i className="dot" style={{ background: swatch(p.colour).base }} /> <b>{p.name}</b></span>
+        <span className="fineprint">{p.ordered} ordered</span>
       </div>
       <label className="toggle"><input type="checkbox" checked={shown} onChange={(e) => setShown(e.target.checked)} /> Show on the form</label>
-      <dl className="receipt">
-        <div className="receipt-row"><dt>Price</dt><dd>{inr(p.price_inr)}</dd></div>
-        <div className="receipt-row"><dt>Sizes</dt><dd>{p.sizes.join(' · ') || '—'}</dd></div>
-        <div className="receipt-row"><dt /><dd className="muted small">Change these in MART Orders → Products</dd></div>
+      <dl className="kv readonly">
+        <div><dt>Price</dt><dd>{inr(p.price_inr)}</dd></div>
+        <div><dt>Sizes</dt><dd>{p.sizes.join(' · ') || '—'}</dd></div>
+        <div><dt /><dd className="fineprint">Read-only here. Change in MART Orders → Products</dd></div>
       </dl>
       <label className="toggle"><input type="checkbox" checked={customOk} onChange={(e) => setCustomOk(e.target.checked)} /> Allow “my size isn't listed”</label>
-      <Field label="Description" htmlFor={`d-${p.id}`}>
-        <textarea id={`d-${p.id}`} className="input" rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} />
-      </Field>
+      <Field label="Description">
+          {(a) => <textarea {...a} className="input" rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} />}
+        </Field>
       <div className="row">
         {photo && <img className="thumb" src={photo} alt="" />}
         <label className="upload sm">
@@ -175,7 +181,7 @@ function ProductCard({ p, run }: { p: AdminProduct; run: Run }) {
         </label>
         {photos.length > 0 && <button type="button" className="link" onClick={() => setPhotos([])}>Remove photo</button>}
       </div>
-      <button type="button" className="btn"
+      <button type="button" className="btn ghost"
         onClick={() => void run(() => api.admin.saveProduct(p.id, { shown, description: desc.trim() || null, allow_custom_size: customOk, photo_paths: photos }), 'Saved')}>
         Save form settings
       </button>
@@ -191,10 +197,10 @@ function QrRow({ q, run }: { q: AdminQr; run: Run }) {
       {img ? <img className="thumb" src={img} alt={`QR for ${q.payee_name}`} /> : <span className="thumb" />}
       <div className="grow">
         <b>{q.payee_name}</b>
-        <div className="muted small">{q.upi_id ?? 'No UPI ID'}</div>
+        <div className="fineprint">{q.upi_id ?? 'No UPI ID'}</div>
       </div>
       {q.active ? <span className="badge ok">Live</span> : (
-        <button type="button" className="btn sm" onClick={() => void run(() => api.admin.setActiveQr(q.id), `${q.payee_name}'s QR is live`)}>Make live</button>
+        <button type="button" className="btn ghost sm" onClick={() => void run(() => api.admin.setActiveQr(q.id), `${q.payee_name}'s QR is live`)}>Make live</button>
       )}
     </div>
   )
@@ -209,17 +215,17 @@ function AddQr({ run }: { run: Run }) {
   return (
     <div className="card stack">
       <b>Add a QR</b>
-      <Field label="Whose QR (shown to students, saved as “paid to”)" htmlFor="q-name">
-        <input id="q-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
-      </Field>
-      <Field label="UPI ID (optional, for the “Open my UPI app” button)" htmlFor="q-upi">
-        <input id="q-upi" className="input mono" value={upi} onChange={(e) => setUpi(e.target.value)} placeholder="name@okhdfcbank" />
-      </Field>
+      <Field label="Whose QR (shown to students, saved as “paid to”)">
+          {(a) => <input {...a} className="input" value={name} onChange={(e) => setName(e.target.value)} />}
+        </Field>
+      <Field label="UPI ID (optional, for the “Open my UPI app” button)">
+          {(a) => <input {...a} className="input mono" value={upi} onChange={(e) => setUpi(e.target.value)} placeholder="name@okhdfcbank" />}
+        </Field>
       <label className="upload">
         <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         {file ? file.name : 'Choose the QR image'}
       </label>
-      <button type="button" className="btn" onClick={() => {
+      <button type="button" className="btn ghost" onClick={() => {
         if (!name.trim() || !file) return toast('Give a name and the QR image.')
         if (upi.trim() && !/^[\w.-]+@[\w.-]+$/.test(upi.trim())) return toast('That UPI ID looks wrong (name@bank).')
         void run(async () => {

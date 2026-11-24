@@ -1,371 +1,443 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import ShirtStage, { type ShirtView } from '../components/ShirtStage'
-import { Chips, Field, useApi, useFileUrl, useToast } from '../components/ui'
+import { Choice, Dock, Field, Sheet, useApi, useFileUrl, useToast } from '../components/ui'
 import type { AuthUser } from '../lib/api'
 import { friendlyError } from '../lib/api'
 import { swatch } from '../lib/colours'
 import { compressImage } from '../lib/image'
-import type { CartItem, OrderForm, StudentDetails, SubmitResult } from '../lib/types'
 import {
-  MAX_ITEMS, cleanPrintName, customSizeError, detailsErrors, inr, normalisePhone, normaliseRoll, normaliseTxn, printNameError, txnError,
-} from '../lib/validate'
+  batchNumeral, detailsReady, draftKey, firstBadLine, itemCap, lineErrors, lineToCart, linesTotal, newLine, pickProduct, priceOf, restoreDraft,
+  type Draft, type Line, type Step,
+} from '../lib/order'
+import type { OrderForm, StudentDetails, SubmitResult } from '../lib/types'
+import { cleanPrintName, customSizeError, detailsErrors, inr, normalisePhone, normaliseRoll, normaliseTxn, txnError } from '../lib/validate'
 
-type Step = 'details' | 'items' | 'payment' | 'review'
 const STEPS: { key: Step; label: string }[] = [
-  { key: 'details', label: 'Details' },
-  { key: 'items', label: 'Items' },
-  { key: 'payment', label: 'Payment' },
-  { key: 'review', label: 'Submit' },
+  { key: 'details', label: 'Your details' },
+  { key: 'items', label: 'Pick your items' },
+  { key: 'payment', label: 'Pay' },
+  { key: 'review', label: 'Check and submit' },
 ]
 
-interface Draft {
-  step: Step
-  details: StudentDetails
-  cart: CartItem[]
-  txn: string
-  shot: string | null
-}
-
-// The draft survives a reload: on phones the browser tab is often killed while the student
-// is in their UPI app paying. Kept in this browser only, per account, cleared after submitting.
-const draftKey = (u: AuthUser, roundId: string) => `mart-order-draft:${u.id}:${roundId}`
-function loadDraft(key: string): Draft | null {
+function readDraft(key: string): string | null {
   try {
-    const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as Draft) : null
+    return localStorage.getItem(key)
   } catch {
     return null
   }
 }
 
-const uid = () => Math.random().toString(36).slice(2, 10)
+function useWide(min = 960) {
+  const q = `(min-width: ${min}px)`
+  const [wide, setWide] = useState(() => window.matchMedia(q).matches)
+  useEffect(() => {
+    const m = window.matchMedia(q)
+    const on = () => setWide(m.matches)
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [q])
+  return wide
+}
 
-export default function Order({ form, user, onDone }: { form: OrderForm; user: AuthUser; onDone(r: SubmitResult): void }) {
+/** "Classic MDI Navy Blue" -> "Classic MDI" (the colour is shown separately) */
+const lineName = (p: { name: string; colour: string }) => p.name.replace(p.colour, '').trim() || p.name
+
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+
+export default function Order({ form, user, onDone }: { form: OrderForm; user: AuthUser; onDone(r: SubmitResult, batch: string): void }) {
   const round = form.round!
   const api = useApi()
   const toast = useToast()
-  const key = draftKey(user, round.campaign_id)
-  const initial = useMemo(() => loadDraft(key), [key])
-  const cap = Math.min(round.item_cap, MAX_ITEMS)
-
-  const [step, setStep] = useState<Step>(initial?.step ?? 'details')
-  const [details, setDetails] = useState<StudentDetails>(
-    initial?.details ?? {
-      name: form.me?.name ?? '', phone: form.me?.phone ?? '', roll_no: form.me?.roll_no ?? '',
-      batch: form.me?.batch ?? '', course: form.me?.course ?? '', section: form.me?.section ?? '',
-    },
-  )
-  // drop cart lines whose product left the form since the draft was saved
-  const [cart, setCart] = useState<CartItem[]>(() => (initial?.cart ?? []).filter((c) => form.products.some((p) => p.id === c.product_id)))
-  const [txn, setTxn] = useState(initial?.txn ?? '')
-  const [shot, setShot] = useState<string | null>(initial?.shot ?? null)
-  const [touched, setTouched] = useState(false)
+  const key = draftKey(user.id, round.campaign_id)
+  // The draft survives a reload: on phones the tab is often killed while the student pays in
+  // their UPI app. Kept in this browser only, per account and round, cleared after submitting.
+  const [draft, setDraft] = useState<Draft>(() => restoreDraft(readDraft(key), form))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const top = useRef<HTMLDivElement>(null)
+  const [touched, setTouched] = useState(false)
 
   useEffect(() => {
     try {
-      localStorage.setItem(key, JSON.stringify({ step, details, cart, txn, shot } satisfies Draft))
+      localStorage.setItem(key, JSON.stringify(draft))
     } catch {
       /* private mode: no draft, still works */
     }
-  }, [key, step, details, cart, txn, shot])
+  }, [key, draft])
+
+  const { step, details, lines } = draft
+  const total = linesTotal(form, lines)
 
   const go = (s: Step) => {
     setError(null)
     setTouched(false)
-    setStep(s)
-    requestAnimationFrame(() => top.current?.scrollIntoView({ block: 'start' }))
+    setDraft((d) => ({ ...d, step: s }))
+    window.scrollTo({ top: 0 })
   }
 
-  const total = cart.reduce((s, c) => s + (form.products.find((p) => p.id === c.product_id)?.price_inr ?? 0), 0)
-  const idx = STEPS.findIndex((s) => s.key === step)
-
   async function submit() {
-    if (!form.qr || !shot) return
+    if (!form.qr || !draft.shot) return
     setBusy(true)
     setError(null)
     try {
       const r = await api.submitOrder({
         campaignId: round.campaign_id,
         details: { ...details, phone: normalisePhone(details.phone), roll_no: normaliseRoll(details.roll_no), name: details.name.trim() },
-        items: cart,
-        payment: { qr_id: form.qr.id, txn_id: normaliseTxn(txn), screenshot_path: shot },
+        items: lines.map(lineToCart),
+        payment: { qr_id: form.qr.id, txn_id: normaliseTxn(draft.txn), screenshot_path: draft.shot },
       })
       try {
         localStorage.removeItem(key)
       } catch {
         /* ignore */
       }
-      onDone(r)
+      onDone(r, lines[0]?.batch ?? '')
     } catch (e) {
       setError(friendlyError(e))
-      toast('Not submitted. See the message above the button.')
+      toast('Not submitted. The reason is above the button.')
     } finally {
       setBusy(false)
     }
   }
 
+  const idx = STEPS.findIndex((s) => s.key === step)
+
   return (
-    <div ref={top} className="order">
+    <div className={`order step-${step}`}>
       <ol className="progress" aria-label="Order steps">
         {STEPS.map((s, i) => (
           <li key={s.key} aria-current={i === idx ? 'step' : undefined} className={i < idx ? 'done' : ''}>
-            <span className="num">{i + 1}</span> {s.label}
+            <span className="sr-only">{i < idx ? 'Done: ' : ''}{s.label}</span>
           </li>
         ))}
       </ol>
+      <p className="progress-label" aria-hidden="true"><b>{STEPS[idx]?.label}</b> <span>{idx + 1} of 4</span></p>
 
-      {step === 'details' && (
-        <DetailsStep form={form} details={details} setDetails={setDetails} touched={touched}
-          onNext={() => {
-            setTouched(true)
-            if (Object.keys(detailsErrors(details, round)).length === 0) go('items')
-          }} />
-      )}
+      <div className="step-body" key={step}>
+        {step === 'details' && (
+          <DetailsStep form={form} details={details} touched={touched}
+            setDetails={(fn) => setDraft((d) => ({ ...d, details: fn(d.details) }))}
+            onNext={() => {
+              setTouched(true)
+              if (detailsReady(details, round)) go('items')
+              else toast('Fill in the fields marked in red.')
+            }} />
+        )}
 
-      {step === 'items' && (
-        <ItemsStep form={form} cap={cap} cart={cart} setCart={setCart} onBack={() => go('details')}
-          onNext={() => (cart.length ? go('payment') : toast('Add at least one item first.'))} />
-      )}
+        {step === 'items' && (
+          <ItemsStep form={form} draft={draft} setDraft={setDraft} total={total} onEditDetails={() => go('details')} onPay={() => go('payment')} />
+        )}
 
-      {step === 'payment' && (
-        <PaymentStep form={form} user={user} total={total} txn={txn} setTxn={setTxn} shot={shot} setShot={setShot}
-          onBack={() => go('items')}
-          onNext={() => {
-            setTouched(true)
-            if (!txnError(txn) && shot) go('review')
-          }} touched={touched} />
-      )}
+        {step === 'payment' && (
+          <PaymentStep form={form} user={user} total={total} count={lines.length} txn={draft.txn} shot={draft.shot} touched={touched}
+            setTxn={(t) => setDraft((d) => ({ ...d, txn: t }))}
+            setShot={(s) => setDraft((d) => ({ ...d, shot: s }))}
+            onBack={() => go('items')}
+            onNext={() => {
+              setTouched(true)
+              if (!txnError(draft.txn) && draft.shot) go('review')
+              else toast(txnError(draft.txn) ?? 'Add the screenshot of your payment.')
+            }} />
+        )}
 
-      {step === 'review' && (
-        <section className="panel stack">
-          <div className="step-head">
-            <span className="eyebrow">Step 4 of 4</span>
-            <h2>Check and submit</h2>
-          </div>
-          <dl className="receipt">
-            <Row k="Name" v={details.name.trim()} />
-            <Row k="Roll no." v={normaliseRoll(details.roll_no)} />
-            <Row k="Phone" v={normalisePhone(details.phone)} />
-            <Row k="Batch · course · section" v={`${details.batch} · ${details.course} · ${details.section}`} />
-            <Row k="Email" v={form.email} />
-          </dl>
-          <CartList form={form} cart={cart} />
-          <dl className="receipt">
-            <Row k="Paid to" v={form.qr?.payee_name ?? '—'} />
-            <Row k="Transaction ID" v={normaliseTxn(txn)} />
-            <div className="receipt-row receipt-total"><dt>Total</dt><dd>{inr(total)}</dd></div>
-          </dl>
-          <p className="note warn-box">After you submit you can't change or cancel the order. Check the sizes and names now.</p>
-          {error && <p className="error" role="alert">{error}</p>}
-          <div className="actions">
-            <button type="button" className="btn" onClick={() => go('payment')} disabled={busy}>Back</button>
-            <button type="button" className="btn primary" onClick={submit} disabled={busy}>
-              {busy ? 'Submitting…' : `Submit order · ${inr(total)}`}
-            </button>
-          </div>
-        </section>
-      )}
-    </div>
-  )
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="receipt-row">
-      <dt>{k}</dt>
-      <dd>{v}</dd>
+        {step === 'review' && (
+          <section className="review">
+            <header className="step-head">
+              <h1>Check, then submit.</h1>
+              <p className="lede">After you submit you can't change or cancel the order. Check sizes and names now.</p>
+            </header>
+            <div className="tag receipt">
+              <span className="tag-hole" aria-hidden="true" />
+              <dl className="kv">
+                <div><dt>Name</dt><dd>{details.name.trim()}</dd></div>
+                <div><dt>Roll no.</dt><dd>{normaliseRoll(details.roll_no)}</dd></div>
+                <div><dt>Phone</dt><dd>{normalisePhone(details.phone)}</dd></div>
+                <div><dt>Batch, course, section</dt><dd>{details.batch} · {details.course} · {details.section}</dd></div>
+                <div><dt>Email</dt><dd>{form.email}</dd></div>
+              </dl>
+              <hr className="perf" />
+              <LineList form={form} lines={lines} />
+              <hr className="perf" />
+              <dl className="kv">
+                <div><dt>Paid to</dt><dd>{form.qr?.payee_name ?? '—'}</dd></div>
+                <div><dt>Transaction ID</dt><dd className="mono">{normaliseTxn(draft.txn)}</dd></div>
+                <div className="kv-total"><dt>Total</dt><dd>{inr(total)}</dd></div>
+              </dl>
+            </div>
+            <p className="fineprint">Something wrong? Go back and fix it: your payment details stay filled in.</p>
+            {error && <p className="error" role="alert">{error}</p>}
+            <Dock>
+              <button type="button" className="btn ghost" onClick={() => go('payment')} disabled={busy}>Back</button>
+              <button type="button" className="btn primary grow" onClick={submit} disabled={busy}>
+                {busy ? 'Submitting…' : `Submit order · ${inr(total)}`}
+              </button>
+            </Dock>
+          </section>
+        )}
+      </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
 function DetailsStep({ form, details, setDetails, touched, onNext }: {
-  form: OrderForm; details: StudentDetails; setDetails: Dispatch<SetStateAction<StudentDetails>>; touched: boolean; onNext(): void
+  form: OrderForm; details: StudentDetails; setDetails(fn: (d: StudentDetails) => StudentDetails): void; touched: boolean; onNext(): void
 }) {
+  const api = useApi()
   const round = form.round!
   const errs = touched ? detailsErrors(details, round) : {}
   const set = (k: keyof StudentDetails) => (v: string) => setDetails((d) => ({ ...d, [k]: v }))
   return (
-    <section className="panel stack">
-      <div className="step-head">
-        <span className="eyebrow">{round.title}</span>
-        {round.team_only && <span className="badge ok">MART team round · only team members can order</span>}
-        <h1>Wear the batch.</h1>
+    <section className="details">
+      <header className="step-head">
+        {round.team_only && <span className="badge ok">MART team round: only team members can order</span>}
+        <h1>{round.title}</h1>
         {round.intro && <p className="lede">{round.intro}</p>}
+      </header>
+      <p className="signed">Signed in as <b>{form.email}</b> <button type="button" className="link" onClick={() => void api.signOut()}>Sign out</button></p>
+      <div className="form-grid">
+        <Field label="Full name" error={errs.name}>
+          {(a) => <input {...a} className="input" autoComplete="name" value={details.name} onChange={(e) => set('name')(e.target.value)} />}
+        </Field>
+        <Field label="Roll number" error={errs.roll_no}>
+          {(a) => <input {...a} className="input upper" autoCapitalize="characters" spellCheck={false} value={details.roll_no} onChange={(e) => set('roll_no')(e.target.value)} />}
+        </Field>
+        <Field label="Mobile number" error={errs.phone} hint="MART calls this number when your order is ready.">
+          {(a) => <input {...a} className="input" type="tel" inputMode="tel" autoComplete="tel" value={details.phone} onChange={(e) => set('phone')(e.target.value)} />}
+        </Field>
+        <Choice legend="Batch" options={round.student_batches} value={details.batch} onChange={set('batch')} error={errs.batch} variant="seg" />
+        <Choice legend="Course" options={round.courses} value={details.course} onChange={set('course')} error={errs.course} />
+        <Choice legend="Section" options={round.sections} value={details.section} onChange={set('section')} error={errs.section} />
       </div>
-      <p className="muted small">Signed in as <b>{form.email}</b></p>
-      <Field label="Full name" htmlFor="f-name" error={errs.name}>
-        <input id="f-name" className="input" autoComplete="name" value={details.name} onChange={(e) => set('name')(e.target.value)} />
-      </Field>
-      <Field label="Roll number" htmlFor="f-roll" error={errs.roll_no}>
-        <input id="f-roll" className="input upper" autoCapitalize="characters" spellCheck={false} value={details.roll_no} onChange={(e) => set('roll_no')(e.target.value)} />
-      </Field>
-      <Field label="Mobile number" htmlFor="f-phone" error={errs.phone} hint="MART calls this number when your order is ready.">
-        <input id="f-phone" className="input" type="tel" inputMode="tel" autoComplete="tel" value={details.phone} onChange={(e) => set('phone')(e.target.value)} />
-      </Field>
-      <Field label="Batch" error={errs.batch}>
-        <Chips label="Batch" options={round.student_batches} value={details.batch} onChange={set('batch')} />
-      </Field>
-      <Field label="Course" error={errs.course}>
-        <Chips label="Course" options={round.courses} value={details.course} onChange={set('course')} />
-      </Field>
-      <Field label="Section" error={errs.section}>
-        <Chips label="Section" options={round.sections} value={details.section} onChange={set('section')} />
-      </Field>
-      <div className="actions">
-        <button type="button" className="btn primary" onClick={onNext}>Next: pick items</button>
-      </div>
+      <Dock>
+        <button type="button" className="btn primary grow" onClick={onNext}>Next: pick your items</button>
+      </Dock>
     </section>
   )
 }
 
 // ---------------------------------------------------------------------------
-function ItemsStep({ form, cap, cart, setCart, onBack, onNext }: {
-  form: OrderForm; cap: number; cart: CartItem[]; setCart: Dispatch<SetStateAction<CartItem[]>>; onBack(): void; onNext(): void
+function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
+  form: OrderForm; draft: Draft; setDraft: Dispatch<SetStateAction<Draft>>; total: number; onEditDetails(): void; onPay(): void
 }) {
   const round = form.round!
   const toast = useToast()
-  const [productId, setProductId] = useState(form.products[0]?.id ?? '')
-  const product = form.products.find((p) => p.id === productId) ?? form.products[0]
-  const [size, setSize] = useState('M')
-  const [custom, setCustom] = useState('')
-  const [useCustom, setUseCustom] = useState(false)
-  const [name, setName] = useState('')
-  const [noName, setNoName] = useState(false)
-  const [batch, setBatch] = useState(round.print_batches[round.print_batches.length - 1] ?? '')
-  const [view, setView] = useState<ShirtView>('front')
-  const [nameWarn, setNameWarn] = useState<string | null>(null)
+  const wide = useWide()
+  const cap = itemCap(round)
+  const { lines, details } = draft
+  const cur = Math.min(draft.cur, lines.length - 1)
+  const line = lines[cur]
+  const product = line && form.products.find((p) => p.id === line.product_id)
+  const [view, setView] = useState<ShirtView>('back')
+  const [shown, setShown] = useState<Set<string>>(() => new Set())
+  const [sheet, setSheet] = useState<'size' | 'photo' | null>(null)
+  const card = useRef<HTMLDivElement>(null)
+  const bag = useRef<HTMLUListElement>(null)
   const photo = useFileUrl('form-assets', product?.photo_paths[0])
-  const full = cart.length >= cap
+  // keep the item being edited visible in the scrolling strip of items
+  useEffect(() => {
+    const el = bag.current?.querySelector<HTMLElement>('li.on')
+    const strip = bag.current
+    if (el && strip) strip.scrollTo({ left: el.offsetLeft - 8, behavior: 'smooth' })
+  }, [cur, lines.length])
+  const errs = line && shown.has(line.key) ? lineErrors(line, form) : {}
+  const full = lines.length >= cap
 
-  if (!product) return <section className="panel"><p>No items are on sale right now.</p></section>
+  if (!form.products.length || !line) {
+    return (
+      <section className="empty">
+        <h1>Nothing on sale yet.</h1>
+        <p className="lede">MART hasn't put any items on this round. Check back soon or watch the MART group.</p>
+      </section>
+    )
+  }
 
-  const pickProduct = (id: string) => {
-    const p = form.products.find((x) => x.id === id)!
-    setProductId(id)
-    setView('front')
-    if (!useCustom && !p.sizes.includes(size)) {
-      const next = p.sizes.includes('M') ? 'M' : p.sizes[0] ?? ''
-      toast(`${size} isn't made in ${p.colour}, so the size is now ${next}.`)
-      setSize(next)
-    }
-    if (useCustom && !p.allow_custom_size) setUseCustom(false)
+  const edit = (fn: (l: Line) => Line) => setDraft((d) => ({ ...d, lines: d.lines.map((l) => (l.key === line.key ? fn(l) : l)) }))
+  const select = (i: number) => {
+    setDraft((d) => ({ ...d, cur: i }))
+    if (!wide) card.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+  const showErrors = (l: Line) => {
+    setShown((s) => new Set(s).add(l.key))
+    // a missing back name is the usual reason: put the cursor there
+    if (lineErrors(l, form).name) requestAnimationFrame(() => document.querySelector<HTMLInputElement>('.input.print')?.focus())
   }
 
   const add = () => {
-    if (full) return toast(`At most ${cap} items per order.`)
-    if (!noName && !name.trim()) {
-      setView('back')
-      document.getElementById('f-print')?.focus()
-      return toast('Type a name for the back, or tick “No name on the back”.')
+    if (full) return toast(`That's the most for one order (${cap}).`)
+    if (Object.keys(lineErrors(line, form)).length) {
+      showErrors(line)
+      return toast(`Finish item ${cur + 1} first.`)
     }
-    const finalSize = useCustom ? custom.trim() : size
-    if (useCustom && customSizeError(custom)) return toast(customSizeError(custom)!)
-    if (!finalSize) return toast('Pick a size.')
-    const pe = noName ? null : printNameError(name, round.name_max)
-    if (pe) return toast(pe)
-    if (!batch) return toast('Pick the batch to print on the back.')
-    setCart((c) => [...c, { key: uid(), product_id: product.id, size: finalSize, print_name: noName ? null : name.trim(), print_batch: batch }])
-    toast(`Added ${product.colour} ${finalSize}${!noName ? ` · ${name.trim()}` : ''}.`)
+    setDraft((d) => ({ ...d, lines: [...d.lines, newLine(form, line)], cur: d.lines.length }))
+    toast(`Item ${lines.length + 1} added, same size and name. Change anything you like.`)
+    setView('back')
+  }
+  const remove = (k: string) => {
+    setDraft((d) => {
+      const at = d.lines.findIndex((l) => l.key === k)
+      const next = d.lines.filter((l) => l.key !== k)
+      return { ...d, lines: next, cur: Math.max(0, Math.min(d.cur > at ? d.cur - 1 : d.cur, next.length - 1)) }
+    })
+    toast('Item removed.')
+  }
+  const pay = () => {
+    const bad = firstBadLine(lines, form)
+    if (bad === -1) return onPay()
+    select(bad)
+    showErrors(lines[bad]!)
+    toast(`Item ${bad + 1}: ${Object.values(lineErrors(lines[bad]!, form))[0]}`)
   }
 
-  return (
-    <div className="items-step">
-      <div className="stage-wrap">
-        <ShirtStage colour={product.colour} printName={noName ? '' : name.trim()} printBatch={batch} view={view} onFlip={() => setView(view === 'front' ? 'back' : 'front')} />
-      </div>
-      <div className="panel stack">
-        <div className="step-head">
-          <span className="eyebrow">Step 2 of 4 · item {Math.min(cart.length + 1, cap)} of up to {cap}</span>
-          <h2>Pick a colour</h2>
-        </div>
-        <div className="choices" role="radiogroup" aria-label="Colour">
-          {form.products.map((p) => (
-            <button key={p.id} type="button" role="radio" aria-checked={p.id === product.id} aria-label={`${p.name}, ${inr(p.price_inr)}`} className="choice" onClick={() => pickProduct(p.id)}>
-              <span className="dot" style={{ background: swatch(p.colour).base }} />
-              <span className="choice-text">
-                <span className="choice-name">{p.colour}</span>
-                <span className="choice-line">{p.name.replace(p.colour, '').trim() || p.name} · {inr(p.price_inr)}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-        {(product.description || photo) && (
-          <div className="product-info">
-            {photo && <img src={photo} alt={product.name} loading="lazy" />}
-            {product.description && <p className="note">{product.description}</p>}
-          </div>
-        )}
-
-        <h3>Size</h3>
-        <Chips label="Size" options={product.sizes} value={useCustom ? '' : size} onChange={(s) => { setSize(s); setUseCustom(false); setView('front') }} />
-        {product.allow_custom_size && (
-          <label className="toggle">
-            <input type="checkbox" checked={useCustom} onChange={(e) => setUseCustom(e.target.checked)} /> My size isn't listed
-          </label>
-        )}
-        {useCustom && (
-          <Field label="Your size" htmlFor="f-custom" error={custom ? customSizeError(custom) : null} hint="e.g. Chest 38 / Length 28">
-            <input id="f-custom" className="input" value={custom} maxLength={40} onChange={(e) => setCustom(e.target.value)} />
-          </Field>
-        )}
-        <div className="chart-slot">Size chart (chest and length in inches) goes here once the vendor sends the numbers.</div>
-
-        <h3>Name on the back</h3>
-        <Field label="Name to print" htmlFor="f-print" error={nameWarn} hint={`Letters, spaces, . ' and - · up to ${round.name_max} · printed in capitals`}>
-          <div className="name-row">
-            <input id="f-print" className="input name-input" autoComplete="off" autoCapitalize="characters" spellCheck={false}
-              placeholder="YOUR NAME" value={name} disabled={noName}
-              onFocus={() => setView('back')}
-              onChange={(e) => {
-                const clean = cleanPrintName(e.target.value, round.name_max)
-                setNameWarn(clean !== e.target.value.toUpperCase().replace(/\s{2,}/g, ' ') ? "Only letters, spaces, . ' and - can be printed." : null)
-                setName(clean)
-              }} />
-            <span className="counter">{name.length}/{round.name_max}</span>
-          </div>
-        </Field>
-        <label className="toggle">
-          <input type="checkbox" checked={noName} onChange={(e) => { setNoName(e.target.checked); if (e.target.checked) setName(''); setView('back') }} /> No name on the back
-        </label>
-        <Field label="Batch printed on the back">
-          <Chips label="Batch printed on the back" options={round.print_batches} value={batch} onChange={(b) => { setBatch(b); setView('back') }} />
-        </Field>
-
-        <div className="actions">
-          <button type="button" className="btn primary" onClick={add} disabled={full}>{full ? `Order is full (${cap})` : `Add to order · ${inr(product.price_inr)}`}</button>
-        </div>
-
-        <div className="step-head">
-          <h2>Your order ({cart.length}/{cap})</h2>
-        </div>
-        {cart.length === 0 ? <p className="muted">Nothing added yet.</p> : <CartList form={form} cart={cart} onRemove={(k) => setCart((cs) => cs.filter((c) => c.key !== k))} />}
-        <div className="actions">
-          <button type="button" className="btn" onClick={onBack}>Back</button>
-          <button type="button" className="btn primary" onClick={onNext} disabled={!cart.length}>Next: payment</button>
-        </div>
-      </div>
+  const numeral = batchNumeral(line.batch)
+  const sw = swatch(product?.colour ?? '')
+  const stage = (
+    <div className="stage-box" style={{ ['--shirt' as string]: sw.base }}>
+      {numeral && <span className="numeral" aria-hidden="true" key={numeral}>{numeral}</span>}
+      <ShirtStage compact={!wide} colour={product?.colour ?? ''} printName={line.no_name ? '' : line.name.trim()} printBatch={line.batch}
+        view={view} onFlip={() => setView((v) => (v === 'front' ? 'back' : 'front'))} />
     </div>
+  )
+
+  return (
+    <section className="items" aria-label="Pick your items">
+      <div className="who">
+        <span className="who-text"><b>{details.name.trim()}</b> · {normaliseRoll(details.roll_no)} · {details.course} {details.section}</span>
+        <button type="button" className="link" onClick={onEditDetails}>Edit</button>
+      </div>
+
+      <ul className="bag" ref={bag} aria-label="Items in this order">
+        {lines.map((l, i) => {
+          const p = form.products.find((x) => x.id === l.product_id)
+          return (
+            <li key={l.key} className={i === cur ? 'on' : ''}>
+              <button type="button" className="bag-item" aria-current={i === cur ? 'true' : undefined} onClick={() => select(i)}>
+                <i className="dot" style={{ background: swatch(p?.colour ?? '').base }} />
+                <span>{i + 1}. {p?.colour ?? 'Item'} · {l.custom ? 'custom' : l.size}{!l.no_name && l.name.trim() ? ` · ${l.name.trim()}` : ''}</span>
+              </button>
+              {lines.length > 1 && <button type="button" className="bag-x" aria-label={`Remove item ${i + 1}`} onClick={() => remove(l.key)}>×</button>}
+            </li>
+          )
+        })}
+        {!full && <li><button type="button" className="bag-add" onClick={add}>+ Add item</button></li>}
+      </ul>
+
+      <div className="item-card" ref={card}>
+        <div className="item-top">
+          {stage}
+          <div className="pick">
+            <p className="item-no">Item {cur + 1} of up to {cap}</p>
+            <h2>{product?.colour ?? 'Pick a colour'}</h2>
+            <p className="pick-line">{product ? `${lineName(product)} · ${inr(product.price_inr)}` : ''}</p>
+            <Choice legend="Colour" hideLegend variant="swatches" options={form.products.map((p) => p.id)} value={product?.id ?? ''} error={errs.product}
+              onChange={(id) => {
+                const p = form.products.find((x) => x.id === id)!
+                const r = pickProduct(line, p)
+                edit(() => r.line)
+                if (r.note) toast(r.note)
+              }}
+              render={(id) => {
+                const p = form.products.find((x) => x.id === id)!
+                return <><i className="swatch" style={{ background: swatch(p.colour).base }} /><span className="sr-only">{p.colour}, {p.name}, {inr(p.price_inr)}</span></>
+              }} />
+            {(product?.description || photo) && (
+              <p className="pick-desc">
+                {product?.description}{' '}
+                {photo && <button type="button" className="link" onClick={() => setSheet('photo')}>See photo</button>}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="item-opts">
+          <Choice legend="Size" variant="sizes" options={product?.sizes ?? []} value={line.custom ? '' : line.size} error={line.custom ? null : errs.size}
+            onChange={(s) => edit((l) => ({ ...l, size: s, custom: false }))}
+            aside={
+              <span className="links">
+                {product?.allow_custom_size && !line.custom && (
+                  <button type="button" className="link small" onClick={() => edit((l) => ({ ...l, custom: true }))}>Not listed?</button>
+                )}
+                <button type="button" className="link small" onClick={() => setSheet('size')}>Size help</button>
+              </span>
+            } />
+          {product?.allow_custom_size && line.custom && (
+            <Field label="Your size" error={errs.size ?? (line.custom_size ? customSizeError(line.custom_size) : null)} hint="e.g. Chest 38 / Length 28"
+              aside={<button type="button" className="link small" onClick={() => edit((l) => ({ ...l, custom: false }))}>Use the list</button>}>
+              {(a) => <input {...a} className="input" value={line.custom_size} maxLength={40} autoFocus onChange={(e) => { const v = e.target.value; edit((l) => ({ ...l, custom_size: v })) }} />}
+            </Field>
+          )}
+
+          <Field label="Name on the back" error={errs.name}
+            hint={line.no_name ? 'Only the batch will be printed.' : `Letters, spaces, . ' and - · up to ${round.name_max}`}
+            aside={
+              <label className="switch">
+                <input type="checkbox" checked={line.no_name} onChange={(e) => { const on = e.target.checked; edit((l) => ({ ...l, no_name: on })); setView('back') }} />
+                <span>No name</span>
+              </label>
+            }>
+            {(a) => (
+              <div className="print-wrap">
+                <input {...a} className="input print" autoComplete="off" autoCapitalize="characters" spellCheck={false} enterKeyHint="done"
+                  placeholder={line.no_name ? 'NO NAME' : 'YOUR NAME'} value={line.no_name ? '' : line.name} disabled={line.no_name}
+                  onFocus={() => setView('back')}
+                  onChange={(e) => { const v = cleanPrintName(e.target.value, round.name_max); edit((l) => ({ ...l, name: v })) }} />
+                {!line.no_name && <span className="counter" aria-hidden="true">{line.name.length}/{round.name_max}</span>}
+              </div>
+            )}
+          </Field>
+
+          <Choice legend="Batch on the back" variant="seg" options={round.print_batches} value={line.batch} error={errs.batch}
+            onChange={(b) => { edit((l) => ({ ...l, batch: b })); setView('back') }} />
+        </div>
+      </div>
+
+      <aside className="rail" aria-label="Your order">
+        <h2>Your order</h2>
+        <LineList form={form} lines={lines} cur={cur} onPick={select} onRemove={lines.length > 1 ? remove : undefined} />
+        {!full ? <button type="button" className="btn ghost" onClick={add}>+ Add another item</button> : <p className="fineprint">That's the most for one order ({cap}).</p>}
+        <div className="rail-total"><span>{plural(lines.length, 'item')}</span><b>{inr(total)}</b></div>
+        <button type="button" className="btn primary" onClick={pay}>Pay {inr(total)}</button>
+        <p className="fineprint">Saved in this browser as you go.</p>
+      </aside>
+
+      <Dock className="items-dock">
+        <div className="tot"><span>{plural(lines.length, 'item')}</span><b>{inr(total)}</b></div>
+        {!full && <button type="button" className="btn ghost" onClick={add}>+ Add</button>}
+        <button type="button" className="btn primary" onClick={pay}>Pay</button>
+      </Dock>
+
+      <Sheet open={sheet === 'size'} onClose={() => setSheet(null)} title="Size help">
+        <p>Polos run true to size. If you're between two sizes, pick the bigger one.</p>
+        <p className="fineprint">The vendor's chart (chest and length in inches) goes here once MART has the numbers.</p>
+        {product?.allow_custom_size && <p>Need something else? Close this and tap <b>My size isn't listed</b> to type your measurements.</p>}
+      </Sheet>
+      <Sheet open={sheet === 'photo'} onClose={() => setSheet(null)} title={product?.name ?? 'Photo'}>
+        {photo && <img className="sheet-photo" src={photo} alt={product?.name ?? ''} />}
+        {product?.description && <p>{product.description}</p>}
+      </Sheet>
+    </section>
   )
 }
 
-function CartList({ form, cart, onRemove }: { form: OrderForm; cart: CartItem[]; onRemove?(key: string): void }) {
+function LineList({ form, lines, cur, onPick, onRemove }: { form: OrderForm; lines: Line[]; cur?: number; onPick?(i: number): void; onRemove?(key: string): void }) {
   return (
-    <ul className="cart">
-      {cart.map((c, i) => {
-        const p = form.products.find((x) => x.id === c.product_id)
-        return (
-          <li key={c.key}>
-            <span className="dot sm" style={{ background: swatch(p?.colour ?? '').base }} />
-            <span className="cart-text">
-              <b>{i + 1}. {p?.name ?? 'Item'} · {c.size}</b>
-              <span className="muted small">{c.print_name ? `“${c.print_name}”` : 'No name'} · {c.print_batch}</span>
+    <ul className="lines">
+      {lines.map((l, i) => {
+        const p = form.products.find((x) => x.id === l.product_id)
+        const c = lineToCart(l)
+        const body = (
+          <>
+            <i className="dot" style={{ background: swatch(p?.colour ?? '').base }} />
+            <span className="line-text">
+              <b>{p?.colour ?? 'Item'} · <span className="print-face">{c.size}</span></b>
+              <small>{c.print_name ? <span className="print-face">{c.print_name}</span> : 'No name'} · {c.print_batch}{p ? ` · ${lineName(p)}` : ''}</small>
             </span>
-            <span className="price">{inr(p?.price_inr ?? 0)}</span>
-            {onRemove && <button type="button" className="btn-x" aria-label={`Remove item ${i + 1}`} onClick={() => onRemove(c.key)}>×</button>}
+            <span className="price">{inr(priceOf(form, l))}</span>
+          </>
+        )
+        return (
+          <li key={l.key} className={cur === i ? 'on' : ''}>
+            {onPick ? <button type="button" className="line-btn" aria-current={cur === i ? 'true' : undefined} onClick={() => onPick(i)}>{body}</button> : <div className="line-btn">{body}</div>}
+            {onRemove && <button type="button" className="bag-x" aria-label={`Remove item ${i + 1}`} onClick={() => onRemove(l.key)}>×</button>}
           </li>
         )
       })}
@@ -374,8 +446,8 @@ function CartList({ form, cart, onRemove }: { form: OrderForm; cart: CartItem[];
 }
 
 // ---------------------------------------------------------------------------
-function PaymentStep({ form, user, total, txn, setTxn, shot, setShot, onBack, onNext, touched }: {
-  form: OrderForm; user: AuthUser; total: number; txn: string; setTxn(t: string): void; shot: string | null; setShot(p: string | null): void
+function PaymentStep({ form, user, total, count, txn, setTxn, shot, setShot, onBack, onNext, touched }: {
+  form: OrderForm; user: AuthUser; total: number; count: number; txn: string; setTxn(t: string): void; shot: string | null; setShot(p: string | null): void
   onBack(): void; onNext(): void; touched: boolean
 }) {
   const api = useApi()
@@ -384,13 +456,14 @@ function PaymentStep({ form, user, total, txn, setTxn, shot, setShot, onBack, on
   const shotUrl = useFileUrl('payment-screenshots', shot)
   const [uploading, setUploading] = useState(false)
   const tErr = touched ? txnError(txn) : null
+  const mobile = useMemo(() => /Android|iPhone|iPad/i.test(navigator.userAgent), [])
 
   if (!form.qr) {
     return (
-      <section className="panel stack">
-        <h2>Payment isn't open yet</h2>
-        <p className="muted">MART hasn't put up a payment QR. Your order is saved on this phone; come back in a little while.</p>
-        <div className="actions"><button type="button" className="btn" onClick={onBack}>Back</button></div>
+      <section className="empty">
+        <h1>Payment isn't open yet.</h1>
+        <p className="lede">MART hasn't put up a payment QR. Your items are saved in this browser, so come back in a little while and carry on.</p>
+        <Dock><button type="button" className="btn ghost grow" onClick={onBack}>Back to items</button></Dock>
       </section>
     )
   }
@@ -405,6 +478,7 @@ function PaymentStep({ form, user, total, txn, setTxn, shot, setShot, onBack, on
     try {
       const small = await compressImage(file)
       setShot(await api.uploadScreenshot(user.id, small))
+      toast('Screenshot added.')
     } catch (e) {
       toast(friendlyError(e))
     } finally {
@@ -413,43 +487,49 @@ function PaymentStep({ form, user, total, txn, setTxn, shot, setShot, onBack, on
   }
 
   return (
-    <section className="panel stack">
-      <div className="step-head">
-        <span className="eyebrow">Step 3 of 4</span>
-        <h2>Pay {inr(total)}</h2>
-        <p className="lede">Scan with any UPI app, or save the QR and open it from your gallery.</p>
-      </div>
-      <div className="qr-card">
-        {qrUrl ? <img src={qrUrl} alt={`UPI QR code for ${q.payee_name}`} width={240} height={240} /> : <div className="qr-ph" />}
-        <div className="qr-meta">
-          <b>{q.payee_name}</b>
-          {q.upi_id && (
-            <button type="button" className="link" onClick={() => navigator.clipboard?.writeText(q.upi_id!).then(() => toast('UPI ID copied'))}>
-              {q.upi_id} · Copy
-            </button>
-          )}
-          <span className="amount">{inr(total)}</span>
+    <section className="payment">
+      <header className="step-head">
+        <h1 className="amount-head"><span>Pay</span> {inr(total)}</h1>
+        <p className="lede">{plural(count, 'item')}. Scan with any UPI app, or save the QR and open it from your gallery.</p>
+      </header>
+
+      <div className="pay-grid">
+        <div className="ticket">
+          <div className="qr">{qrUrl ? <img src={qrUrl} alt={`UPI QR code for ${q.payee_name}`} width={240} height={240} /> : <div className="qr-ph" aria-label="Loading the QR" />}</div>
+          <div className="ticket-meta">
+            <span className="fineprint">Paying</span>
+            <b>{q.payee_name}</b>
+            {q.upi_id && (
+              <button type="button" className="link" onClick={() => navigator.clipboard?.writeText(q.upi_id!).then(() => toast('UPI ID copied'), () => toast(q.upi_id!))}>
+                {q.upi_id} <span className="copy">Copy</span>
+              </button>
+            )}
+            <span className="ticket-amount">{inr(total)}</span>
+          </div>
+          {upiLink && mobile && <a className="btn primary" href={upiLink}>Open my UPI app</a>}
+        </div>
+
+        <div className="pay-fields">
+          <p className="note">Pay exactly <b>{inr(total)}</b>. Your order is saved in this browser while you're in your UPI app, so come back here after paying.</p>
+          <Field label="UPI transaction ID (UTR)" error={tErr} hint="12 digits in GPay, PhonePe or Paytm, under the payment details.">
+            {(a) => <input {...a} className="input mono" inputMode="text" autoCapitalize="characters" spellCheck={false} autoComplete="off" value={txn} onChange={(e) => setTxn(e.target.value)} />}
+          </Field>
+          <div className="field">
+            <div className="field-top"><span className="label">Payment screenshot</span></div>
+            <label className={`drop ${uploading ? 'busy' : ''} ${shotUrl ? 'has' : ''} ${touched && !shot ? 'bad' : ''}`}>
+              <input type="file" accept="image/*" onChange={(e) => void pick(e.target.files?.[0])} disabled={uploading} aria-describedby="shot-msg" />
+              {shotUrl && <img src={shotUrl} alt="Your payment screenshot" />}
+              <span className="drop-text">{uploading ? 'Shrinking and uploading…' : shot ? 'Change screenshot' : 'Add the screenshot'}</span>
+            </label>
+            {touched && !shot ? <span id="shot-msg" className="hint bad" role="alert">Add the screenshot of your payment</span> : <span id="shot-msg" className="hint">It's shrunk before upload, so it's quick on mobile data.</span>}
+          </div>
         </div>
       </div>
-      {upiLink && <a className="btn" href={upiLink}>Open my UPI app</a>}
-      <p className="note">Pay exactly {inr(total)} to this QR. Then come back here: your order is saved on this phone.</p>
 
-      <Field label="UPI transaction ID (UTR)" htmlFor="f-txn" error={tErr} hint="12 digits in GPay / PhonePe / Paytm, under the payment details.">
-        <input id="f-txn" className="input mono" inputMode="text" autoCapitalize="characters" spellCheck={false} value={txn} onChange={(e) => setTxn(e.target.value)} />
-      </Field>
-
-      <Field label="Payment screenshot" error={touched && !shot ? 'Upload the screenshot of the payment' : null}>
-        <label className={`upload ${uploading ? 'busy' : ''}`}>
-          <input type="file" accept="image/*" onChange={(e) => void pick(e.target.files?.[0])} disabled={uploading} />
-          {uploading ? 'Uploading…' : shot ? 'Change screenshot' : 'Choose screenshot'}
-        </label>
-        {shotUrl && <img className="shot" src={shotUrl} alt="Your payment screenshot" />}
-      </Field>
-
-      <div className="actions">
-        <button type="button" className="btn" onClick={onBack}>Back</button>
-        <button type="button" className="btn primary" onClick={onNext} disabled={uploading}>Next: check</button>
-      </div>
+      <Dock>
+        <button type="button" className="btn ghost" onClick={onBack}>Back</button>
+        <button type="button" className="btn primary grow" onClick={onNext} disabled={uploading}>Check order</button>
+      </Dock>
     </section>
   )
 }
