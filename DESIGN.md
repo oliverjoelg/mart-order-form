@@ -26,8 +26,13 @@ Supporting moves (all in service of that one idea):
 - The wordmark and headlines use Archivo's **width axis** expressively: 125% wide, weight 900.
 - Back names, sizes on tags, and order codes are set in **Michroma**, the print face, so what you
   type looks like what gets printed.
-- The receipt and the Done screen are a **garment tag** (punched hole, perforation) because that's
-  what you get with a shirt.
+- The **garment tag** carries the order from start to finish, because that's what you get with a
+  shirt. On Items, the size, back name and batch sit on a cream tag (clipped top corners, punched
+  hole with a string up to the shirt, a tear line, and the price at the foot). Each item is a mini
+  luggage tag in the item strip and the laptop rail, and the one being edited is filled (ink in light
+  mode, orange in dark). The receipt and the Done screen are tags too. Tags are always light card
+  stock (`--tag`) in both themes, so controls on a tag use fixed light-theme colours. Added
+  2026-11-24 at Oliver's request, from the mockup at https://claude.ai/artifact/11WdEQyqa2iWRgT8uom3kd.
 
 ## Tokens
 
@@ -46,6 +51,7 @@ Supporting moves (all in service of that one idea):
 | `--bad` | `#b42318` | `#ff7a6b` | errors |
 | `--focus` | `#2b59d9` | `#8fb0ff` | focus ring, links |
 | `--tag` | `#f6f3ee` | `#f6f3ee` | garment tag (always light, like card stock) |
+| `--tag-on` / `--tag-on-ink` | `#121726` / `#f6f3ee` | `#f2763f` / `#1a0b04` | the item tag being edited |
 
 Orange is used only for: the main action, the batch numeral, the active step, and the "new" order
 highlight. Status colours (ok/bad) never stand in for the accent.

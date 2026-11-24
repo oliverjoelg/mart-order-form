@@ -312,13 +312,15 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
             <li key={l.key} className={i === cur ? 'on' : ''}>
               <button type="button" className="bag-item" aria-current={i === cur ? 'true' : undefined} onClick={() => select(i)}>
                 <i className="dot" style={{ background: swatch(p?.colour ?? '').base }} />
-                <span>{i + 1}. {p?.colour ?? 'Item'} · {l.custom ? 'custom' : l.size}{!l.no_name && l.name.trim() ? ` · ${l.name.trim()}` : ''}</span>
+                <span className="sr-only">Item {i + 1}, {p?.colour ?? 'item'}, </span>
+                <span className="print-face" aria-hidden="true">{l.custom ? 'CUSTOM' : l.size}{!l.no_name && l.name.trim() ? ` · ${l.name.trim()}` : ''}</span>
+                <span className="sr-only">{l.custom ? 'custom size' : `size ${l.size}`}{!l.no_name && l.name.trim() ? `, ${l.name.trim()}` : ''}</span>
               </button>
               {lines.length > 1 && <button type="button" className="bag-x" aria-label={`Remove item ${i + 1}`} onClick={() => remove(l.key)}>×</button>}
             </li>
           )
         })}
-        {!full && <li><button type="button" className="bag-add" onClick={add}>+ Add item</button></li>}
+        {!full && <li className="add"><button type="button" className="bag-add" onClick={add}>+ Add item</button></li>}
       </ul>
 
       <div className="item-card" ref={card}>
@@ -348,7 +350,10 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
           </div>
         </div>
 
-        <div className="item-opts">
+        {/* the item's options sit on a garment tag: punched hole, string up to the shirt, tear line, price at the foot */}
+        <div className="item-opts item-tag">
+          <span className="tag-string" aria-hidden="true" />
+          <span className="tag-hole" aria-hidden="true" />
           <Choice legend="Size" variant="sizes" options={product?.sizes ?? []} value={line.custom ? '' : line.size} error={line.custom ? null : errs.size}
             onChange={(s) => edit((l) => ({ ...l, size: s, custom: false }))}
             aside={
@@ -362,7 +367,7 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
           {product?.allow_custom_size && line.custom && (
             <Field label="Your size" error={errs.size ?? (line.custom_size ? customSizeError(line.custom_size) : null)} hint="e.g. Chest 38 / Length 28"
               aside={<button type="button" className="link small" onClick={() => edit((l) => ({ ...l, custom: false }))}>Use the list</button>}>
-              {(a) => <input {...a} className="input" value={line.custom_size} maxLength={40} autoFocus onChange={(e) => { const v = e.target.value; edit((l) => ({ ...l, custom_size: v })) }} />}
+              {(a) => <input {...a} className="input" placeholder="Chest 38 / Length 28" value={line.custom_size} maxLength={40} autoFocus onChange={(e) => { const v = e.target.value; edit((l) => ({ ...l, custom_size: v })) }} />}
             </Field>
           )}
 
@@ -385,15 +390,24 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
             )}
           </Field>
 
-          <Choice legend="Batch on the back" variant="seg" options={round.print_batches} value={line.batch} error={errs.batch}
-            onChange={(b) => { edit((l) => ({ ...l, batch: b })); setView('back') }} />
+          <hr className="perf" />
+          <div className="tag-foot">
+            <Choice legend="Batch on the back" variant="chips" options={round.print_batches} value={line.batch} error={errs.batch}
+              onChange={(b) => { edit((l) => ({ ...l, batch: b })); setView('back') }} />
+            {product && (
+              <p className="tag-price">
+                <span>{lineName(product)}</span>
+                <b>{inr(product.price_inr)}</b>
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
       <aside className="rail" aria-label="Your order">
         <h2>Your order</h2>
-        <LineList form={form} lines={lines} cur={cur} onPick={select} onRemove={lines.length > 1 ? remove : undefined} />
-        {!full ? <button type="button" className="btn ghost" onClick={add}>+ Add another item</button> : <p className="fineprint">That's the most for one order ({cap}).</p>}
+        <LineList form={form} lines={lines} cur={cur} onPick={select} onRemove={lines.length > 1 ? remove : undefined} tags />
+        {!full ? <button type="button" className="btn add-tag" onClick={add}>+ Add another item</button> : <p className="fineprint">That's the most for one order ({cap}).</p>}
         <div className="rail-total"><span>{plural(lines.length, 'item')}</span><b>{inr(total)}</b></div>
         <button type="button" className="btn primary" onClick={pay}>Pay {inr(total)}</button>
         <p className="fineprint">Saved in this browser as you go.</p>
@@ -408,7 +422,7 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
       <Sheet open={sheet === 'size'} onClose={() => setSheet(null)} title="Size help">
         <p>Polos run true to size. If you're between two sizes, pick the bigger one.</p>
         <p className="fineprint">The vendor's chart (chest and length in inches) goes here once MART has the numbers.</p>
-        {product?.allow_custom_size && <p>Need something else? Close this and tap <b>My size isn't listed</b> to type your measurements.</p>}
+        {product?.allow_custom_size && <p>Need something else? Close this and tap <b>Not listed?</b> to type your measurements.</p>}
       </Sheet>
       <Sheet open={sheet === 'photo'} onClose={() => setSheet(null)} title={product?.name ?? 'Photo'}>
         {photo && <img className="sheet-photo" src={photo} alt={product?.name ?? ''} />}
@@ -418,9 +432,9 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
   )
 }
 
-function LineList({ form, lines, cur, onPick, onRemove }: { form: OrderForm; lines: Line[]; cur?: number; onPick?(i: number): void; onRemove?(key: string): void }) {
+function LineList({ form, lines, cur, onPick, onRemove, tags }: { form: OrderForm; lines: Line[]; cur?: number; onPick?(i: number): void; onRemove?(key: string): void; tags?: boolean }) {
   return (
-    <ul className="lines">
+    <ul className={tags ? 'lines tag-lines' : 'lines'}>
       {lines.map((l, i) => {
         const p = form.products.find((x) => x.id === l.product_id)
         const c = lineToCart(l)

@@ -15,6 +15,8 @@
   --tag: #f6f3ee;
   --tag-ink: #121726;
   --tag-muted: #6a6f7c;
+  --tag-on: #121726;
+  --tag-on-ink: #f6f3ee;
   --shadow: rgba(18, 23, 38, .08);
 
   --display: 'Archivo', 'Arial Black', system-ui, sans-serif;
@@ -36,6 +38,7 @@
     --paper: #0d1018; --card: #161a24; --ink: #eef0f5; --muted: #9aa2b5; --line: #2a3040;
     --orange: #f2763f; --orange-ink: #1a0b04; --stage-1: #252b39; --stage-2: #0d1018;
     --ok: #4cc38a; --bad: #ff7a6b; --focus: #8fb0ff; --shadow: rgba(0, 0, 0, .4);
+    --tag-on: #f2763f; --tag-on-ink: #1a0b04;
     color-scheme: dark;
   }
 }
@@ -43,6 +46,7 @@
   --paper: #0d1018; --card: #161a24; --ink: #eef0f5; --muted: #9aa2b5; --line: #2a3040;
   --orange: #f2763f; --orange-ink: #1a0b04; --stage-1: #252b39; --stage-2: #0d1018;
   --ok: #4cc38a; --bad: #ff7a6b; --focus: #8fb0ff; --shadow: rgba(0, 0, 0, .4);
+  --tag-on: #f2763f; --tag-on-ink: #1a0b04;
   color-scheme: dark;
 }
 @media (min-width: 960px) { :root { --gutter: 32px; } }
@@ -308,7 +312,7 @@ select.input { appearance: auto; }
 .bag-add { min-height: 36px; padding: 0 14px; border: 0; background: none; font-size: 12.5px; font-weight: 700; color: var(--orange); cursor: pointer; }
 .bag li:has(.bag-add) { border-style: dashed; }
 
-.item-card { display: flex; flex-direction: column; gap: 14px; scroll-margin-top: calc(var(--top) + 8px); }
+.item-card { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: calc(var(--top) + 8px); }
 .item-top { display: grid; grid-template-columns: minmax(0, 140px) minmax(0, 1fr); gap: 14px; align-items: stretch; }
 .item-top .stage-box { height: 168px; --numeral-stroke: 1.5px; }
 .pick { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -324,6 +328,69 @@ select.input { appearance: auto; }
 }
 .input.print::placeholder { color: color-mix(in srgb, var(--muted) 60%, transparent); }
 .counter { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---------- items: the garment tag (chosen 2026-11-24; see DESIGN.md) ---------- */
+.item-tag {
+  position: relative; margin-top: 8px; padding: 24px var(--s4) 12px; gap: 10px;
+  /* card stock with clipped top corners; drawn with gradients (not clip-path) so the string can hang above it */
+  background:
+    linear-gradient(135deg, transparent 13px, var(--tag) 13.5px) top left / 51% 40px no-repeat,
+    linear-gradient(225deg, transparent 13px, var(--tag) 13.5px) top right / 51% 40px no-repeat,
+    linear-gradient(var(--tag), var(--tag)) 0 40px / 100% calc(100% - 40px) no-repeat;
+  color: var(--tag-ink);
+  /* the tag is always light card stock, in both themes */
+  --ink: var(--tag-ink); --muted: var(--tag-muted); --line: #d9d3c8; --card: transparent;
+  --focus: #2b59d9; --bad: #b42318; --orange: #c8431a; --orange-ink: #ffffff;
+}
+.item-tag .tag-hole { top: 7px; }
+/* phones: the rules live in the placeholder and counter; only errors take a line */
+@media (max-width: 959px) { .item-tag .hint:not(.bad) { display: none; } }
+.item-tag .tag-string { top: -18px; height: 28px; z-index: 1; background: var(--muted); }
+.item-tag .field-top > label, .item-tag .field-top .label { font-size: 12px; color: var(--tag-muted); }
+.item-tag .opt input:checked + span { background: var(--tag-ink); color: var(--tag); border-color: var(--tag-ink); }
+.item-tag .opts.sizes .opt > span { font-family: var(--display); font-weight: 800; font-stretch: 82%; font-size: 13.5px; letter-spacing: .01em; border-radius: 8px; }
+.item-tag .input { background: transparent; }
+.item-tag .input.print {
+  border: 0; border-bottom: 2px solid var(--tag-ink); border-radius: 0; padding: 6px 64px 6px 2px; min-height: 44px; font-size: 20px; letter-spacing: .16em;
+}
+.item-tag .input.print:focus { box-shadow: none; border-bottom-color: var(--orange); }
+.item-tag .input.print[aria-invalid='true'] { border-bottom-color: var(--bad); }
+.item-tag .input.print::placeholder { color: #b9b3a8; }
+.item-tag .switch input { background: #d9d3c8; }
+.item-tag .switch input::after { background: #ffffff; }
+.item-tag .perf { position: relative; margin: 2px calc(-1 * var(--s4)); overflow: visible; }
+.item-tag .perf::before, .item-tag .perf::after { content: ''; position: absolute; top: -11px; width: 20px; height: 20px; border-radius: 50%; background: var(--paper); }
+.item-tag .perf::before { left: -10px; }
+.item-tag .perf::after { right: -10px; }
+.tag-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
+.tag-foot .opt > span { min-height: 40px; min-width: 0; padding: 0 9px; font-size: 12.5px; border-radius: 8px; }
+.tag-foot .opts { gap: 4px; }
+.tag-price { margin: 0 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; line-height: 1; }
+.tag-price span { font-size: 11px; color: var(--tag-muted); }
+.tag-price b { font: 900 26px var(--display); font-stretch: 115%; font-variant-numeric: tabular-nums; }
+
+/* item strip: one mini luggage tag per item; the one being edited is filled */
+.bag li { border: 0; border-radius: 0; background: var(--tag); color: var(--tag-ink); position: relative; padding-left: 12px; clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%); }
+.bag li::before { content: ''; position: absolute; left: 10px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: var(--paper); box-shadow: inset 0 1px 1px rgba(0, 0, 0, .3); }
+.bag li.on { background: var(--tag-on); color: var(--tag-on-ink); }
+.bag li .bag-item { color: inherit; padding-left: 8px; }
+.bag li .bag-x { color: inherit; opacity: .7; }
+.bag li .bag-x:hover { background: rgba(127, 127, 127, .2); color: inherit; opacity: 1; }
+.bag li.add { clip-path: none; padding: 0; background: transparent; border: 1.5px dashed var(--orange); border-radius: 8px; }
+.bag li.add::before { content: none; }
+.bag li.add .bag-add { min-height: 33px; }
+.btn.add-tag { border: 1.5px dashed var(--orange); color: var(--orange); background: transparent; }
+
+/* laptop rail: the order as a stack of mini tags */
+.tag-lines { gap: 8px; }
+.tag-lines li { border-bottom: 0; background: var(--tag); color: var(--tag-ink); position: relative; padding-left: 14px; clip-path: polygon(12px 0, 100% 0, 100% 100%, 12px 100%, 0 50%); }
+.tag-lines li::before { content: ''; position: absolute; left: 12px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: var(--card); }
+.tag-lines li.on { background: var(--tag-on); color: var(--tag-on-ink); }
+.tag-lines li.on .line-btn { box-shadow: none; padding-left: 8px; }
+.tag-lines .line-btn { padding-left: 8px; color: inherit; }
+.tag-lines .line-text small { color: inherit; opacity: .72; }
+.tag-lines .bag-x { color: inherit; opacity: .7; }
+button.line-btn:hover { background: transparent; }
 
 .rail { display: none; }
 .items-dock { margin-top: var(--s2); }
