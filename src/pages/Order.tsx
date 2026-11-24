@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import ShirtStage, { type ShirtView } from '../components/ShirtStage'
 import { Chips, Field, useApi, useFileUrl, useToast } from '../components/ui'
 import type { AuthUser } from '../lib/api'
@@ -183,11 +183,11 @@ function Row({ k, v }: { k: string; v: string }) {
 
 // ---------------------------------------------------------------------------
 function DetailsStep({ form, details, setDetails, touched, onNext }: {
-  form: OrderForm; details: StudentDetails; setDetails(d: StudentDetails): void; touched: boolean; onNext(): void
+  form: OrderForm; details: StudentDetails; setDetails: Dispatch<SetStateAction<StudentDetails>>; touched: boolean; onNext(): void
 }) {
   const round = form.round!
   const errs = touched ? detailsErrors(details, round) : {}
-  const set = (k: keyof StudentDetails) => (v: string) => setDetails({ ...details, [k]: v })
+  const set = (k: keyof StudentDetails) => (v: string) => setDetails((d) => ({ ...d, [k]: v }))
   return (
     <section className="panel stack">
       <div className="step-head">
@@ -224,7 +224,7 @@ function DetailsStep({ form, details, setDetails, touched, onNext }: {
 
 // ---------------------------------------------------------------------------
 function ItemsStep({ form, cap, cart, setCart, onBack, onNext }: {
-  form: OrderForm; cap: number; cart: CartItem[]; setCart(c: CartItem[]): void; onBack(): void; onNext(): void
+  form: OrderForm; cap: number; cart: CartItem[]; setCart: Dispatch<SetStateAction<CartItem[]>>; onBack(): void; onNext(): void
 }) {
   const round = form.round!
   const toast = useToast()
@@ -268,7 +268,7 @@ function ItemsStep({ form, cap, cart, setCart, onBack, onNext }: {
     const pe = noName ? null : printNameError(name, round.name_max)
     if (pe) return toast(pe)
     if (!batch) return toast('Pick the batch to print on the back.')
-    setCart([...cart, { key: uid(), product_id: product.id, size: finalSize, print_name: noName ? null : name.trim(), print_batch: batch }])
+    setCart((c) => [...c, { key: uid(), product_id: product.id, size: finalSize, print_name: noName ? null : name.trim(), print_batch: batch }])
     toast(`Added ${product.colour} ${finalSize}${!noName ? ` · ${name.trim()}` : ''}.`)
   }
 
@@ -342,7 +342,7 @@ function ItemsStep({ form, cap, cart, setCart, onBack, onNext }: {
         <div className="step-head">
           <h2>Your order ({cart.length}/{cap})</h2>
         </div>
-        {cart.length === 0 ? <p className="muted">Nothing added yet.</p> : <CartList form={form} cart={cart} onRemove={(k) => setCart(cart.filter((c) => c.key !== k))} />}
+        {cart.length === 0 ? <p className="muted">Nothing added yet.</p> : <CartList form={form} cart={cart} onRemove={(k) => setCart((cs) => cs.filter((c) => c.key !== k))} />}
         <div className="actions">
           <button type="button" className="btn" onClick={onBack}>Back</button>
           <button type="button" className="btn primary" onClick={onNext} disabled={!cart.length}>Next: payment</button>
