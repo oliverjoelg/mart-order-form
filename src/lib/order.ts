@@ -120,6 +120,19 @@ export function initialDetails(form: OrderForm): StudentDetails {
   return { name: m.name ?? '', phone: m.phone ?? '', roll_no: m.roll_no ?? '', batch: m.batch ?? '', course: m.course ?? '', section: m.section ?? '' }
 }
 
+/**
+ * The products on sale can change while the form is open (MART edits the round, or the form reloads
+ * after the student comes back from their UPI app). Drops items whose product is gone, keeps at least
+ * one item to edit, and keeps `cur` in range. Returns the same object when nothing changed.
+ */
+export function fitToForm<T extends { lines: Line[]; cur: number }>(d: T, form: OrderForm): T {
+  const onSale = (id: string) => form.products.some((p) => p.id === id)
+  if (d.lines.every((l) => onSale(l.product_id)) && (d.lines.length || !form.products.length)) return d
+  let lines = d.lines.filter((l) => onSale(l.product_id))
+  if (!lines.length && form.products.length) lines = [newLine(form)]
+  return { ...d, lines, cur: Math.min(d.cur, Math.max(0, lines.length - 1)) }
+}
+
 // ---- draft kept in this browser ----
 export const draftKey = (userId: string, roundId: string) => `mart-order-draft:${userId}:${roundId}`
 

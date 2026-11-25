@@ -16,6 +16,8 @@
   --tag-ink: #121726;
   --tag-muted: #6a6f7c;
   --tag-on: #121726;
+  --numeral: var(--orange);
+  --snow: rgba(255, 255, 255, .88);
   --tag-on-ink: #f6f3ee;
   --shadow: rgba(18, 23, 38, .08);
 
@@ -236,7 +238,7 @@ select.input { appearance: auto; }
 .numeral {
   position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; user-select: none; z-index: 0;
   font: 900 var(--numeral-size, 160px)/.8 var(--display); font-stretch: 125%; letter-spacing: -.06em;
-  color: transparent; -webkit-text-stroke: var(--numeral-stroke, 2px) var(--orange);
+  color: transparent; -webkit-text-stroke: var(--numeral-stroke, 2px) var(--numeral);
   animation: numeral-in var(--t-med) var(--ease-out);
 }
 @keyframes numeral-in { from { opacity: 0; transform: scale(.9); } }
@@ -286,7 +288,7 @@ select.input { appearance: auto; }
 .signed b { color: var(--ink); font-weight: 600; }
 
 /* details */
-.details, .review { max-width: 680px; }
+.details:not(.split), .review:not(.split) { max-width: 680px; }
 .form-grid { display: flex; flex-direction: column; gap: 18px; }
 @media (min-width: 640px) {
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 16px; }
@@ -314,12 +316,20 @@ select.input { appearance: auto; }
 
 .item-card { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: calc(var(--top) + 8px); }
 .item-top { display: grid; grid-template-columns: minmax(0, 140px) minmax(0, 1fr); gap: 14px; align-items: stretch; }
-.item-top .stage-box { height: 168px; --numeral-stroke: 1.5px; }
+.item-top .stage-box { height: 160px; --numeral-stroke: 1.5px; }
 .pick { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .item-no { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); }
 .pick h2 { font-size: clamp(22px, 6.6vw, 30px); font-stretch: 118%; font-weight: 900; }
 .pick-line { margin: 0 0 4px; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pick-desc { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+/* phones: one line for the product, no description, so the whole tag stays above the bottom bar */
+@media (max-width: 959px) {
+  .pick-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pick-desc { display: none; }
+  .item-tag .tag-foot { flex-wrap: nowrap; }
+  .item-tag .tag-foot .choice { flex: none; }
+  .item-tag .tag-price b { font-size: 22px; }
+}
 .item-opts { display: flex; flex-direction: column; gap: 14px; }
 .links { display: inline-flex; gap: 14px; }
 .print-wrap { position: relative; }
@@ -365,8 +375,8 @@ select.input { appearance: auto; }
 .tag-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
 .tag-foot .opt > span { min-height: 40px; min-width: 0; padding: 0 9px; font-size: 12.5px; border-radius: 8px; }
 .tag-foot .opts { gap: 4px; }
-.tag-price { margin: 0 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; line-height: 1; }
-.tag-price span { font-size: 11px; color: var(--tag-muted); }
+.tag-price { margin: 0 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; line-height: 1; min-width: 0; }
+.tag-price span { font-size: 11px; color: var(--tag-muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tag-price b { font: 900 26px var(--display); font-stretch: 115%; font-variant-numeric: tabular-nums; }
 
 /* item strip: one mini luggage tag per item; the one being edited is filled */
@@ -531,6 +541,7 @@ button.line-btn:hover { background: color-mix(in srgb, var(--ink) 4%, transparen
 .ticker { grid-column: 1 / -1; overflow: hidden; margin-inline: calc(50% - 50vw); background: var(--ink); color: var(--paper); }
 .ticker-track { display: flex; width: max-content; animation: ticker 32s linear infinite; }
 .ticker-track > span { display: inline-flex; align-items: center; gap: 14px; padding: 12px 7px; font: 800 15px var(--display); font-stretch: 118%; white-space: nowrap; }
+.ticker .tick { display: inline-flex; align-items: center; gap: 14px; }
 .ticker i { width: 12px; height: 12px; border-radius: 50%; background: var(--orange); display: inline-block; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3); }
 @keyframes ticker { to { transform: translateX(-50%); } }
 @media (min-width: 900px) {
@@ -542,7 +553,8 @@ button.line-btn:hover { background: color-mix(in srgb, var(--ink) 4%, transparen
 }
 
 /* ---------- my orders ---------- */
-.orders { max-width: 760px; display: flex; flex-direction: column; }
+.orders { display: flex; flex-direction: column; }
+@media (min-width: 960px) { .orders .order-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--s4); } }
 .order-list { display: flex; flex-direction: column; gap: var(--s3); }
 .order-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s4); display: flex; flex-direction: column; gap: var(--s3); }
 .order-card.fresh { border-color: var(--orange); box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 18%, transparent); animation: rise var(--t-med) var(--ease-out); }
@@ -598,10 +610,97 @@ button.line-btn:hover { background: color-mix(in srgb, var(--ink) 4%, transparen
 @media (min-width: 640px) { .sheet { margin: auto; border-radius: var(--r-card); } }
 @keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
 
+/* ---------- step headlines: the sign-in page's type, inside ---------- */
+.step-hero {
+  font-size: clamp(36px, 10.5vw, 88px); font-weight: 900; font-stretch: 125%; line-height: .9; letter-spacing: -.02em;
+  transform-origin: left center; animation: stretch var(--t-slow) var(--ease-out) both;
+}
+.round-line { margin: 0; color: var(--muted); max-width: 60ch; }
+.round-line b { color: var(--ink); }
+.items-hero { display: none; }
+
+/* ---------- split steps: the form left, a live picture right (laptops) ---------- */
+.split-side { display: none; }
+@media (min-width: 960px) {
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .82fr); gap: var(--s6); align-items: start; }
+  .split-main { min-width: 0; }
+  .split-side { display: block; position: sticky; top: calc(var(--top) + 16px); }
+  .items-hero { display: block; grid-area: hero; font-size: clamp(40px, 4.4vw, 64px); }
+  .items { grid-template-areas: 'stage hero rail' 'stage who rail' 'stage pick rail' 'stage opts rail'; grid-template-rows: auto auto auto 1fr; }
+}
+.side-stage {
+  position: relative; overflow: hidden; container-type: size; border-radius: var(--r-card);
+  height: min(680px, calc(100svh - var(--top) - 64px)); min-height: 460px;
+  background: radial-gradient(110% 85% at 50% 38%, var(--stage-1) 0%, var(--stage-2) 100%);
+  --numeral-size: min(62cqw, 60cqh); --numeral-stroke: 3px;
+}
+.side-stage .numeral { place-items: center; padding-bottom: 12%; }
+.side-garment { position: absolute; inset: 8% 14% 26%; display: grid; place-items: center; z-index: 1; }
+.side-garment .polo { height: 100%; }
+.side-stage .fan.fill { position: absolute; inset: 6% 0 14%; height: auto; overflow: visible; }
+.side-stage .fan.fill .numeral { display: none; }
+.side-stage:has(.fan.fill) .fan-shirt { width: 54%; }
+.side-caption { position: absolute; left: 0; right: 0; bottom: 18px; margin: 0; text-align: center; font: 800 18px var(--display); font-stretch: 115%; color: var(--stage-ink, var(--ink)); z-index: 2; }
+.id-tag {
+  position: absolute; left: 50%; bottom: 22px; width: min(300px, 80%); z-index: 2; margin-left: min(-150px, -40%);
+  padding: 30px 18px 16px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; text-align: center;
+  transform-origin: 50% -20px; animation: swing var(--t-slow) var(--ease-swing); transform: rotate(-2deg);
+}
+.id-tag b { font-size: 15px; letter-spacing: .1em; overflow-wrap: anywhere; }
+.id-tag span:not(.tag-hole):not(.tag-string) { color: var(--tag-muted); }
+.id-tag .tag-string { top: -26px; height: 36px; }
+
+/* ---------- snow (Winter Hoodies) ---------- */
+.snow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.snow-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+/* ======================================================================
+   Winter Hoodies skin. Frost paper, midnight ink, a night stage with snow, ice-blue numeral.
+   MART orange stays the action colour: warmth against the cold.
+   ====================================================================== */
+:root[data-skin='hoodies'] {
+  --paper: #e6ecf3; --card: #f7f9fc; --ink: #0e1a2f; --muted: #4c5a72; --line: #c9d3e0;
+  --orange: #c8431a; --orange-ink: #ffffff; --focus: #2b59d9;
+  --stage-1: #2b3d5f; --stage-2: #0b1424; --stage-ink: #eaf1f8;
+  --numeral: #8fb8de; --snow: rgba(255, 255, 255, .85);
+  --tag-on: #0e1a2f; --shadow: rgba(14, 26, 47, .1);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-skin='hoodies']:not([data-theme='light']) {
+    --paper: #0a1120; --card: #111b2d; --ink: #eaf1f8; --muted: #93a3ba; --line: #22314a;
+    --orange: #f2763f; --orange-ink: #1a0b04; --focus: #8fb0ff;
+    --stage-1: #22324f; --stage-2: #070d18; --tag-on: #f2763f; --shadow: rgba(0, 0, 0, .45);
+    color-scheme: dark;
+  }
+}
+:root[data-skin='hoodies'][data-theme='dark'] {
+  --paper: #0a1120; --card: #111b2d; --ink: #eaf1f8; --muted: #93a3ba; --line: #22314a;
+  --orange: #f2763f; --orange-ink: #1a0b04; --focus: #8fb0ff;
+  --stage-1: #22324f; --stage-2: #070d18; --tag-on: #f2763f; --shadow: rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
+/* the stage is night in both modes, so its small print is light */
+[data-skin='hoodies'] .stage-meta { color: rgba(234, 241, 248, .72); }
+[data-skin='hoodies'] .view-label { color: #eaf1f8; }
+[data-skin='hoodies'] .polo { filter: drop-shadow(0 14px 22px rgba(0, 0, 0, .45)); }
+/* sign-in and closed pages: a winter night, full bleed, snowing */
+[data-skin='hoodies'] .app.page-login,
+[data-skin='hoodies'] .app:has(.closed) {
+  min-height: 100svh; color: #eaf1f8; --ink: #eaf1f8; --muted: #a9b7cc; --paper: #0b1424;
+  background: radial-gradient(120% 90% at 72% 28%, #2b3d5f 0%, #0b1424 62%);
+}
+[data-skin='hoodies'] .app.page-login .topbar,
+[data-skin='hoodies'] .app:has(.closed) .topbar { background: transparent; border-bottom-color: rgba(255, 255, 255, .1); backdrop-filter: none; }
+[data-skin='hoodies'] .app.page-login .demo { background: #eaf1f8; color: #0b1424; }
+[data-skin='hoodies'] .login, [data-skin='hoodies'] .closed { position: relative; z-index: 1; }
+[data-skin='hoodies'] .ticker { background: rgba(255, 255, 255, .08); color: #eaf1f8; border-block: 1px solid rgba(255, 255, 255, .12); }
+[data-skin='hoodies'] .ticker i { background: #8fb8de; }
+[data-skin='hoodies'] .closed .btn.ghost { background: transparent; border-color: rgba(255, 255, 255, .35); color: #eaf1f8; }
+
 /* ---------- reduced motion: opacity only, short ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 150ms !important; animation-iteration-count: 1 !important; transition-duration: 0ms !important; }
-  .hero span, .done-tag, .step-body, .numeral, .toast > span, .sheet[open] { animation-name: fade !important; }
+  .hero span, .step-hero, .id-tag, .done-tag, .step-body, .numeral, .toast > span, .sheet[open] { animation-name: fade !important; }
   .ticker-track { animation: none !important; }
   .flipper { transition: none; }
 }

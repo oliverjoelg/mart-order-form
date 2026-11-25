@@ -1,3 +1,4 @@
+import type { ThemeId } from './theme'
 import type {
   AdminFormRound, AdminState, CartItem, MyOrder, OrderForm, ProductPatch, StudentDetails, SubmitResult,
 } from './types'
@@ -18,6 +19,8 @@ export interface Api {
   signOut(): Promise<void>
 
   getForm(): Promise<OrderForm>
+  /** The open round's look ('tees' when unknown). Works before sign-in. */
+  getLook(): Promise<ThemeId>
   /** A short-lived link to a private file (QR image, product photo, own screenshot). */
   fileUrl(bucket: Bucket, path: string): Promise<string>
   /** Uploads the (already compressed) screenshot into the student's own folder; returns its path. */
@@ -40,6 +43,9 @@ export interface Api {
     addQr(q: { payee_name: string; upi_id: string | null; image_path: string }): Promise<void>
     /** null = no live QR (students can't pay until one is live) */
     setActiveQr(id: string | null): Promise<void>
+    /** MART super admin? Only they can change a round's theme. */
+    isSuper(): Promise<boolean>
+    setTheme(campaignId: string, theme: ThemeId): Promise<void>
   }
 }
 

@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import ShirtStage, { type ShirtView } from '../components/ShirtStage'
+import Fan from '../components/Fan'
+import ShirtStage, { Garment, type ShirtView } from '../components/ShirtStage'
+import Snow from '../components/Snow'
 import { Choice, Dock, Field, Sheet, useApi, useFileUrl, useToast } from '../components/ui'
 import type { AuthUser } from '../lib/api'
 import { friendlyError } from '../lib/api'
 import { swatch } from '../lib/colours'
 import { compressImage } from '../lib/image'
 import {
-  batchNumeral, detailsReady, draftKey, firstBadLine, itemCap, lineErrors, lineToCart, linesTotal, newLine, pickProduct, priceOf, restoreDraft,
+  batchNumeral, detailsReady, draftKey, firstBadLine, fitToForm, itemCap, lineErrors, lineToCart, linesTotal, newLine, pickProduct, priceOf, restoreDraft,
   type Draft, type Line, type Step,
 } from '../lib/order'
+import { useTheme } from '../lib/theme'
 import type { OrderForm, StudentDetails, SubmitResult } from '../lib/types'
 import { cleanPrintName, customSizeError, detailsErrors, inr, normalisePhone, normaliseRoll, normaliseTxn, txnError } from '../lib/validate'
 
@@ -55,6 +58,9 @@ export default function Order({ form, user, onDone }: { form: OrderForm; user: A
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [touched, setTouched] = useState(false)
+
+  // the products on sale can change while the form is open: keep the items pointing at real ones
+  useEffect(() => setDraft((d) => fitToForm(d, form)), [form])
 
   useEffect(() => {
     try {
@@ -140,9 +146,10 @@ export default function Order({ form, user, onDone }: { form: OrderForm; user: A
         )}
 
         {step === 'review' && (
-          <section className="review">
+          <section className="review split">
+            <div className="split-main">
             <header className="step-head">
-              <h1>Check, then submit.</h1>
+              <h1 className="step-hero">Check, then submit.</h1>
               <p className="lede">After you submit you can't change or cancel the order. Check sizes and names now.</p>
             </header>
             <div className="tag receipt">
@@ -171,6 +178,14 @@ export default function Order({ form, user, onDone }: { form: OrderForm; user: A
                 {busy ? 'Submitting…' : `Submit order · ${inr(total)}`}
               </button>
             </Dock>
+            </div>
+            <aside className="split-side" aria-hidden="true">
+              <div className="side-stage">
+                <Fan className="fill" batch={lines[0]?.batch ?? details.batch}
+                  shirts={lines.slice(0, 3).map((l) => ({ colour: form.products.find((p) => p.id === l.product_id)?.colour ?? '', name: l.no_name ? '' : l.name.trim() }))} />
+                <p className="side-caption">{plural(lines.length, 'item')} · {inr(total)}</p>
+              </div>
+            </aside>
           </section>
         )}
       </div>
@@ -186,12 +201,14 @@ function DetailsStep({ form, details, setDetails, touched, onNext }: {
   const round = form.round!
   const errs = touched ? detailsErrors(details, round) : {}
   const set = (k: keyof StudentDetails) => (v: string) => setDetails((d) => ({ ...d, [k]: v }))
+  const theme = useTheme()
   return (
-    <section className="details">
+    <section className="details split">
+      <div className="split-main">
       <header className="step-head">
         {round.team_only && <span className="badge ok">MART team round: only team members can order</span>}
-        <h1>{round.title}</h1>
-        {round.intro && <p className="lede">{round.intro}</p>}
+        <h1 className="step-hero">{theme.detailsHead}</h1>
+        <p className="round-line"><b>{round.title}</b>{round.intro ? ` · ${round.intro}` : ''}</p>
       </header>
       <p className="signed">Signed in as <b>{form.email}</b> <button type="button" className="link" onClick={() => void api.signOut()}>Sign out</button></p>
       <div className="form-grid">
@@ -209,9 +226,34 @@ function DetailsStep({ form, details, setDetails, touched, onNext }: {
         <Choice legend="Section" options={round.sections} value={details.section} onChange={set('section')} error={errs.section} />
       </div>
       <Dock>
-        <button type="button" className="btn primary grow" onClick={onNext}>Next: pick your items</button>
+        <button type="button" className="btn primary grow" onClick={onNext}>Next: pick your {theme.noun}s</button>
       </Dock>
+      </div>
+      <DetailsPreview details={details} />
     </section>
+  )
+}
+
+/** Laptop only: the student's garment and name tag, filling in as they type. */
+function DetailsPreview({ details }: { details: StudentDetails }) {
+  const theme = useTheme()
+  const first = cleanPrintName(details.name.trim().split(/\s+/)[0] ?? '', 12)
+  const batch = details.batch || "PG'26"
+  return (
+    <aside className="split-side" aria-hidden="true">
+      <div className="side-stage">
+        {theme.snow && <Snow />}
+        <span className="numeral">{batchNumeral(batch) || '26'}</span>
+        <div className="side-garment"><Garment garment={theme.garment} side="back" colour="Navy Blue" printName={first || 'YOUR NAME'} printBatch={batch} /></div>
+        <div className="tag id-tag">
+          <span className="tag-hole" />
+          <span className="tag-string" />
+          <b className="print-face">{details.name.trim().toUpperCase() || 'YOUR NAME'}</b>
+          <span>{normaliseRoll(details.roll_no) || 'ROLL NO.'}</span>
+          <span>{[details.batch, details.course, details.section].filter(Boolean).join(' · ') || 'Batch · course · section'}</span>
+        </div>
+      </div>
+    </aside>
   )
 }
 
@@ -222,6 +264,7 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
   const round = form.round!
   const toast = useToast()
   const wide = useWide()
+  const theme = useTheme()
   const cap = itemCap(round)
   const { lines, details } = draft
   const cur = Math.min(draft.cur, lines.length - 1)
@@ -292,14 +335,16 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
   const sw = swatch(product?.colour ?? '')
   const stage = (
     <div className="stage-box" style={{ ['--shirt' as string]: sw.base }}>
+      {theme.snow && <Snow density={wide ? 1 : 0.6} />}
       {numeral && <span className="numeral" aria-hidden="true" key={numeral}>{numeral}</span>}
-      <ShirtStage compact={!wide} colour={product?.colour ?? ''} printName={line.no_name ? '' : line.name.trim()} printBatch={line.batch}
+      <ShirtStage compact={!wide} garment={theme.garment} colour={product?.colour ?? ''} printName={line.no_name ? '' : line.name.trim()} printBatch={line.batch}
         view={view} onFlip={() => setView((v) => (v === 'front' ? 'back' : 'front'))} />
     </div>
   )
 
   return (
     <section className="items" aria-label="Pick your items">
+      <h1 className="step-hero items-hero">{theme.itemsHead}</h1>
       <div className="who">
         <span className="who-text"><b>{details.name.trim()}</b> · {normaliseRoll(details.roll_no)} · {details.course} {details.section}</span>
         <button type="button" className="link" onClick={onEditDetails}>Edit</button>
@@ -420,7 +465,7 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
       </Dock>
 
       <Sheet open={sheet === 'size'} onClose={() => setSheet(null)} title="Size help">
-        <p>Polos run true to size. If you're between two sizes, pick the bigger one.</p>
+        <p>{theme.sizeHelp}</p>
         <p className="fineprint">The vendor's chart (chest and length in inches) goes here once MART has the numbers.</p>
         {product?.allow_custom_size && <p>Need something else? Close this and tap <b>Not listed?</b> to type your measurements.</p>}
       </Sheet>
@@ -503,7 +548,7 @@ function PaymentStep({ form, user, total, count, txn, setTxn, shot, setShot, onB
   return (
     <section className="payment">
       <header className="step-head">
-        <h1 className="amount-head"><span>Pay</span> {inr(total)}</h1>
+        <h1 className="step-hero amount-head"><span>Pay</span> {inr(total)}</h1>
         <p className="lede">{plural(count, 'item')}. Scan with any UPI app, or save the QR and open it from your gallery.</p>
       </header>
 
