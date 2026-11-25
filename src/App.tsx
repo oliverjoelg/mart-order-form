@@ -5,6 +5,7 @@ import { ApiCtx, Spinner, ToastProvider } from './components/ui'
 import type { Api, AuthUser } from './lib/api'
 import { friendlyError } from './lib/api'
 import { batchNumeral } from './lib/order'
+import { redirectErrorMessage } from './lib/redirect'
 import { applySkin, resolveTheme, ThemeCtx, useTheme, type Theme, type ThemeId } from './lib/theme'
 import type { OrderForm, SubmitResult } from './lib/types'
 import { inr } from './lib/validate'
@@ -27,7 +28,7 @@ function readRedirectError(): string | null {
   const desc = params.get('error_description')
   if (!desc) return null
   window.history.replaceState(null, '', window.location.pathname)
-  return /database error|mdi\.ac\.in/i.test(desc) ? 'Use your @mdi.ac.in Google account. Other accounts can’t order.' : desc
+  return redirectErrorMessage(desc)
 }
 
 export default function App({ api }: { api: Api }) {
