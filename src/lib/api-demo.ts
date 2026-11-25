@@ -34,18 +34,29 @@ export function createDemoApi(): Api {
   const campaignId = 'demo-round'
   const round = {
     campaign_id: campaignId, is_open: true, title: 'Batch Tees 2026', intro: 'Orders close Friday 6 pm. Collect from MART when your item is ready.',
-    item_cap: 6, name_max: 12, team_only: false,
+    item_cap: 6, name_max: 12, team_only: false, theme: 'tees' as 'tees' | 'hoodies',
     student_batches: ["PG'24", "PG'25", "PG'26"], courses: ['PGDM', 'PGDM-HRM', 'PGDM-IB', 'PGDM-BFS', 'PGDM-BN'],
     sections: ['A', 'B', 'C', 'D', 'E', 'F', 'NA'], print_batches: ["PG'24", "PG'25", "PG'26"],
   }
   const classic = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
   const premium = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
-  const products = [
+  const tees = [
     { id: 'navy', name: 'Classic MDI Navy Blue', colour: 'Navy Blue', price_inr: 699, sizes: classic, ordered: 3, form: { shown: true, description: 'Cotton polo, MDI print on the back.', photo_paths: [], allow_custom_size: true } },
     { id: 'pink', name: 'Classic MDI Baby Pink', colour: 'Baby Pink', price_inr: 699, sizes: classic, ordered: 1, form: { shown: true, description: 'Cotton polo, MDI print on the back.', photo_paths: [], allow_custom_size: true } },
     { id: 'black', name: 'Premium UCB Black', colour: 'Black', price_inr: 1049, sizes: premium, ordered: 0, form: { shown: true, description: 'United Colors of Benetton polo.', photo_paths: [], allow_custom_size: false } },
     { id: 'white', name: 'Premium UCB White', colour: 'White', price_inr: 1049, sizes: premium, ordered: 0, form: { shown: true, description: 'United Colors of Benetton polo.', photo_paths: [], allow_custom_size: false } },
   ]
+  const hoodieSizes = ['S', 'M', 'L', 'XL', 'XXL']
+  const hoodies = [
+    { id: 'h-navy', name: 'Winter Hoodie Navy', colour: 'Navy Blue', price_inr: 1299, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Fleece-lined pullover, MDI print on the back.', photo_paths: [] as string[], allow_custom_size: false } },
+    { id: 'h-maroon', name: 'Winter Hoodie Maroon', colour: 'Maroon', price_inr: 1299, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Fleece-lined pullover, MDI print on the back.', photo_paths: [] as string[], allow_custom_size: false } },
+    { id: 'h-grey', name: 'Winter Hoodie Grey', colour: 'Grey', price_inr: 1299, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Fleece-lined pullover, MDI print on the back.', photo_paths: [] as string[], allow_custom_size: false } },
+    { id: 'h-black', name: 'Winter Hoodie Black', colour: 'Black', price_inr: 1399, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Heavyweight fleece, MDI print on the back.', photo_paths: [] as string[], allow_custom_size: false } },
+  ]
+  // the demo round sells polos or hoodies depending on its theme
+  const cur = () => (round.theme === 'hoodies' ? hoodies : tees)
+  const roundName = () => (round.theme === 'hoodies' ? 'Winter Hoodies 2026' : 'Batch Tees 2026')
+  const superAdmin = true
   const now = () => new Date().toISOString()
   const qrs: AdminQr[] = [
     { id: 'qr1', payee_name: 'Animesh (MART)', upi_id: 'animesh@okdemo', image_path: 'qr/animesh.svg', active: true, activated_at: now(), deactivated_at: null, created_at: now() },
@@ -85,13 +96,18 @@ export function createDemoApi(): Api {
       notify()
     },
 
+    async getLook() {
+      await delay(60)
+      return round.is_open ? round.theme : 'tees'
+    },
+
     async getForm() {
       await delay()
       const active = qrs.find((q) => q.active)
       return {
         round: round.is_open ? { ...round, title: round.title || 'Batch Tees 2026' } : null,
         products: round.is_open
-          ? products.filter((p) => p.form.shown).map((p) => ({
+          ? cur().filter((p) => p.form.shown).map((p) => ({
               id: p.id, name: p.name, colour: p.colour, price_inr: p.price_inr, sizes: p.sizes,
               description: p.form.description, photo_paths: p.form.photo_paths, allow_custom_size: p.form.allow_custom_size,
             }))
@@ -123,7 +139,7 @@ export function createDemoApi(): Api {
       if (items.length < 1) fail('Add at least one item')
       if (items.length > Math.min(round.item_cap, 6)) fail(`At most ${Math.min(round.item_cap, 6)} items per order`)
       items.forEach((it, i) => {
-        const p = products.find((x) => x.id === it.product_id && x.form.shown) ?? fail(`Item ${i + 1}: this product is not on the form`)
+        const p = cur().find((x) => x.id === it.product_id && x.form.shown) ?? fail(`Item ${i + 1}: this product is not on the form`)
         if (!sizeOk({ ...p, ...p.form }, it.size)) fail(`Item ${i + 1}: pick a size from the list`)
         if (!round.print_batches.includes(it.print_batch)) fail(`Item ${i + 1}: pick the batch to print`)
         if (it.print_name && printNameError(it.print_name, round.name_max)) fail(`Item ${i + 1}: name on the back can have letters, spaces, . ' - (max ${round.name_max})`)
@@ -138,7 +154,7 @@ export function createDemoApi(): Api {
       usedTxns.add(txn)
       profile = { ...details, phone: normalisePhone(details.phone), roll_no: normaliseRoll(details.roll_no) }
       const lines = items.map((it) => {
-        const p = products.find((x) => x.id === it.product_id)!
+        const p = cur().find((x) => x.id === it.product_id)!
         p.ordered++
         const std = p.sizes.includes(it.size.toUpperCase())
         return { product: p.name, colour: p.colour, size: std ? it.size.toUpperCase() : it.size.trim(), print_name: it.print_name, print_batch: it.print_batch, status: 'ordered' as const, price_inr: p.price_inr }
@@ -157,14 +173,14 @@ export function createDemoApi(): Api {
     admin: {
       async state() {
         await delay()
-        const r: AdminRound = { campaign_id: campaignId, name: 'Batch Tees 2026', orders: orders.length - 1, form: { ...round }, products: structuredClone(products) }
+        const r: AdminRound = { campaign_id: campaignId, name: roundName(), orders: orders.length - 1, form: { ...round }, products: structuredClone(cur()) }
         const other: AdminRound = { campaign_id: 'hoodies', name: 'Hoodies 2027', orders: 0, form: null, products: [] }
         return { rounds: [r, other], qrs: structuredClone(qrs) }
       },
       async setOpen(cid, open) {
         await delay()
         if (cid === campaignId) round.is_open = open
-        else fail('Demo: only Batch Tees 2026 has products')
+        else fail('Demo: only the first round has products')
       },
       async saveRound(_cid, patch) {
         await delay()
@@ -172,7 +188,7 @@ export function createDemoApi(): Api {
       },
       async saveProduct(id, patch) {
         await delay()
-        const p = products.find((x) => x.id === id) ?? fail('Unknown product')
+        const p = cur().find((x) => x.id === id) ?? fail('Unknown product')
         if ('price_inr' in patch || 'sizes' in patch) fail('Prices, sizes and names are changed in MART Orders, not on the order form')
         Object.assign(p.form, patch)
       },
@@ -199,6 +215,16 @@ export function createDemoApi(): Api {
           q.active = true
           q.activated_at = now()
         }
+      },
+      async isSuper() {
+        return superAdmin
+      },
+      async setTheme(cid, theme) {
+        await delay()
+        if (!superAdmin) fail('Only MART super admins can change the form theme')
+        if (cid !== campaignId) fail('Demo: only the first round has products')
+        round.theme = theme
+        round.title = roundName()
       },
     },
   }

@@ -35,7 +35,7 @@ export default function MyOrders({ justPlaced, onOrder }: { justPlaced?: string 
   return (
     <section className="orders">
       <header className="step-head">
-        <h1>My orders</h1>
+        <h1 className="step-hero">My orders.</h1>
         <p className="lede">Orders can't be changed or cancelled here. For a problem, message MART with your roll number.</p>
       </header>
 

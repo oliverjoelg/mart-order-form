@@ -25,6 +25,7 @@ npm run build
 |---|---|
 | `DESIGN.md` | The look: tokens (colour, type, spacing, radius, motion), layout, states. Read before changing styles |
 | `src/pages/Order.tsx` | Details (skipped when saved details are complete) → Items (one card per item, bottom bar with total) → Payment (live QR, txn ID, screenshot) → Check and submit |
+| `src/lib/theme.ts` | The two looks (Batch T-shirt, Winter Hoodies): words, garment, snow. Colours in `styles.css` `[data-skin]`. Super admins pick per round on the Admin tab |
 | `src/lib/order.ts` | Items being edited, the draft kept in this browser (also reads pre-redesign drafts), per-item checks. Tested in `order.test.ts` |
 | `src/pages/MyOrders.tsx` | The student's own orders: Ordered → At the vendor → Ready to collect → Collected |
 | `src/pages/Admin.tsx` | Form admins (max 2): open/close the round, which products show, photos, descriptions, payment QRs. Prices and sizes are read-only here (set in MART Orders) |

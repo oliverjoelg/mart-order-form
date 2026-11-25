@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  batchNumeral, draftKey, firstBadLine, fitSize, itemCap, lineErrors, lineToCart, linesTotal, newLine, pickProduct, restoreDraft, type Line,
+  batchNumeral, draftKey, firstBadLine, fitSize, fitToForm, itemCap, lineErrors, lineToCart, linesTotal, newLine, pickProduct, restoreDraft, type Line,
 } from './order'
 import type { FormProduct, OrderForm } from './types'
 
@@ -159,5 +159,22 @@ describe('draft in this browser', () => {
     const r = restoreDraft(saved, { ...form, round: { ...form.round!, item_cap: 3 } })
     expect(r.lines).toHaveLength(3)
     expect(r.cur).toBe(2)
+  })
+})
+
+describe('products changing while the form is open', () => {
+  it('leaves a draft alone when every item is still on sale', () => {
+    const d = { lines: [line()], cur: 0 }
+    expect(fitToForm(d, form)).toBe(d)
+  })
+  it('drops items whose product left and keeps cur in range', () => {
+    const d = { lines: [line(), line({ key: 'g', product_id: 'gone' })], cur: 1 }
+    expect(fitToForm(d, form)).toMatchObject({ lines: [{ key: 'k' }], cur: 0 })
+  })
+  it('starts a fresh item when none are left (e.g. the round switched from polos to hoodies)', () => {
+    const hoodie = { ...navy, id: 'hoodie', colour: 'Maroon' }
+    const r = fitToForm({ lines: [line()], cur: 0 }, { ...form, products: [hoodie] })
+    expect(r.lines).toHaveLength(1)
+    expect(r.lines[0]).toMatchObject({ product_id: 'hoodie', size: 'M' })
   })
 })

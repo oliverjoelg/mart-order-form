@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Polo } from './components/ShirtStage'
+import Fan, { SHOWCASE } from './components/Fan'
+import Snow from './components/Snow'
 import { ApiCtx, Spinner, ToastProvider } from './components/ui'
 import type { Api, AuthUser } from './lib/api'
 import { friendlyError } from './lib/api'
 import { batchNumeral } from './lib/order'
+import { applySkin, resolveTheme, ThemeCtx, useTheme, type Theme, type ThemeId } from './lib/theme'
 import type { OrderForm, SubmitResult } from './lib/types'
 import { inr } from './lib/validate'
 import Admin from './pages/Admin'
@@ -44,10 +46,17 @@ function Shell({ api }: { api: Api }) {
   const [error, setError] = useState<string | null>(() => readRedirectError())
   const [tab, setTab] = useState<Tab>(readTab)
   const [placed, setPlaced] = useState<{ r: SubmitResult; batch: string } | null>(null)
+  const [look, setLook] = useState<ThemeId>('tees')
+  const theme: Theme = resolveTheme(look)
+  useEffect(() => applySkin(theme), [theme])
+
+  // The round's look (set by MART super admins). Known before sign-in, so the sign-in page matches.
+  const reloadLook = useCallback(() => api.getLook().then(setLook, () => undefined), [api])
 
   const refresh = useCallback(async () => {
     try {
       setError(null)
+      void reloadLook()
       const u = await api.getUser()
       setUser(u)
       setForm(u ? await api.getForm() : null)
@@ -55,7 +64,7 @@ function Shell({ api }: { api: Api }) {
       setError(friendlyError(e))
       setUser((u) => u ?? null)
     }
-  }, [api])
+  }, [api, reloadLook])
 
   useEffect(() => {
     void refresh()
@@ -73,12 +82,15 @@ function Shell({ api }: { api: Api }) {
   const signedIn = !!user
   useEffect(() => {
     if (!signedIn || tab !== 'order') return
-    const reload = () => api.getForm().then(setForm, () => undefined)
+    const reload = () => {
+      void reloadLook()
+      return api.getForm().then(setForm, () => undefined)
+    }
     void reload()
     const onVis = () => document.visibilityState === 'visible' && void reload()
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
-  }, [api, signedIn, tab])
+  }, [api, signedIn, tab, reloadLook])
 
   const go = (t: Tab) => {
     window.location.hash = t === 'order' ? '/' : `/${t}`
@@ -89,6 +101,7 @@ function Shell({ api }: { api: Api }) {
   const page = user === undefined ? 'boot' : !user ? 'login' : 'app'
 
   return (
+    <ThemeCtx.Provider value={theme}>
     <div className={`app page-${page} tab-${tab}`}>
       <header className="topbar">
         <a className="wordmark" href="#/" onClick={(e) => { e.preventDefault(); go('order') }} aria-label="MART order form, home">
@@ -119,7 +132,7 @@ function Shell({ api }: { api: Api }) {
         ) : tab === 'orders' ? (
           <MyOrders justPlaced={placed?.r.order_id} onOrder={() => go('order')} />
         ) : tab === 'admin' && form.is_form_admin ? (
-          <Admin />
+          <Admin onLook={() => void reloadLook()} />
         ) : placed ? (
           <Done r={placed.r} batch={placed.batch} onOrders={() => go('orders')} onAgain={() => { setPlaced(null); void refresh() }} />
         ) : !form.round ? (
@@ -129,29 +142,27 @@ function Shell({ api }: { api: Api }) {
         )}
       </main>
     </div>
+    </ThemeCtx.Provider>
   )
 }
 
-/** Three polos fanned out: the login and closed screens' picture. */
-function Fan({ name = 'YOUR NAME', batch = "PG'26" }: { name?: string; batch?: string }) {
-  return (
-    <div className="fan" aria-hidden="true">
-      <span className="numeral">{batchNumeral(batch) || '26'}</span>
-      <span className="fan-shirt l"><Polo side="back" colour="Baby Pink" printName="" printBatch={batch} /></span>
-      <span className="fan-shirt r"><Polo side="back" colour="Black" printName="" printBatch={batch} /></span>
-      <span className="fan-shirt c"><Polo side="back" colour="Navy Blue" printName={name} printBatch={batch} /></span>
-    </div>
-  )
+/** The sign-in picture: this theme's garments, the front one with a name on it. */
+function Showcase({ name = 'YOUR NAME' }: { name?: string }) {
+  const theme = useTheme()
+  const [c, l, r] = SHOWCASE[theme.garment]
+  return <Fan shirts={[{ colour: c!, name }, { colour: l!, name: '' }, { colour: r!, name: '' }]} batch="PG'26" snow={false} />
 }
 
 function Login({ api, error }: { api: Api; error: string | null }) {
+  const theme = useTheme()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(error)
   return (
     <section className="login">
+      {theme.snow && <div className="snow-layer"><Snow /></div>}
       <div className="login-copy">
-        <h1 className="hero"><span>Wear</span> <span>the</span> <span>batch.</span></h1>
-        <p className="lede">MART merch for MDI Gurgaon. Pick the colour and size, put your name on the back, pay by UPI. Two minutes, start to finish.</p>
+        <h1 className="hero">{theme.heroLines.map((w, i) => <span key={i}>{w}</span>)}</h1>
+        <p className="lede">{theme.lede}</p>
         {IN_APP && (
           <p className="callout">
             You opened this inside another app, and Google blocks sign-in there. Tap ⋮ and choose <b>Open in Chrome</b> (or Safari).
@@ -172,11 +183,11 @@ function Login({ api, error }: { api: Api; error: string | null }) {
         </button>
         <p className="fineprint">Use your @mdi.ac.in account. You'll only ever see your own orders.</p>
       </div>
-      <Fan />
+      <Showcase />
       <div className="ticker" aria-hidden="true">
         <div className="ticker-track">
           {Array.from({ length: 2 }, (_, k) => (
-            <span key={k}>Navy Blue <i style={{ background: '#1f2945' }} /> Baby Pink <i style={{ background: '#f0c7d1' }} /> Black <i style={{ background: '#18191b' }} /> White <i style={{ background: '#f2f2ef' }} /> Your name on the back <i /> Batch on the back <i /> </span>
+            <span key={k}>{theme.ticker.map((t) => <span key={t} className="tick">{t} <i /></span>)}</span>
           ))}
         </div>
       </div>
@@ -196,18 +207,20 @@ function GoogleG() {
 }
 
 function Closed({ teamOnly, onOrders }: { teamOnly: boolean; onOrders(): void }) {
+  const theme = useTheme()
   return (
     <section className="closed">
+      {theme.snow && <div className="snow-layer"><Snow /></div>}
       <div className="login-copy">
         <h1 className="hero"><span>Orders</span> <span>are</span> <span>closed.</span></h1>
         <p className="lede">
           {teamOnly
             ? 'Orders are open to the MART team only right now. Watch the MART group for when they open to everyone.'
-            : 'There’s no round open right now. Watch the MART group for the next one.'}
+            : theme.closedLede}
         </p>
         <div className="actions"><button type="button" className="btn ghost" onClick={onOrders}>See my orders</button></div>
       </div>
-      <Fan name="SOON" />
+      <Showcase name="SOON" />
     </section>
   )
 }

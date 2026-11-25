@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Api } from './api'
+import { resolveTheme } from './theme'
 import type { AdminState, MyOrder, OrderForm, SubmitResult } from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
@@ -50,6 +51,12 @@ export function createSupabaseApi(): Api {
 
     async signOut() {
       await sb.auth.signOut()
+    },
+
+    async getLook() {
+      // form_look() is in the 2026-11-25 migration; until it's applied, the T-shirt look
+      const { data, error } = await sb.rpc('form_look')
+      return error ? 'tees' : resolveTheme(data).id
     },
 
     async getForm() {
@@ -111,6 +118,13 @@ export function createSupabaseApi(): Api {
       },
       async setActiveQr(id) {
         ok(await sb.rpc('form_admin_set_active_qr', { p_qr_id: id }))
+      },
+      async isSuper() {
+        const { data, error } = await sb.rpc('is_super')
+        return !error && data === true
+      },
+      async setTheme(campaignId, theme) {
+        ok(await sb.rpc('form_set_theme', { p_campaign_id: campaignId, p_theme: theme }))
       },
     },
   }

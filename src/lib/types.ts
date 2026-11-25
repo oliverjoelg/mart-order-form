@@ -96,6 +96,8 @@ export interface AdminFormRound {
   item_cap: number
   name_max: number
   team_only: boolean
+  /** look on the order form; set by MART super admins only (missing before the migration) */
+  theme?: 'tees' | 'hoodies'
 }
 
 export interface AdminProduct {

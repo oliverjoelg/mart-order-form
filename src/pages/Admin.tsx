@@ -1,16 +1,21 @@
 // Form admins (1-2 people, added by a MART super admin): open/close the form, products shown,
 // prices, sizes, photos, and the live payment QR. Orders themselves are handled in MART Orders.
 import { useCallback, useEffect, useState } from 'react'
-import { Field, Spinner, useApi, useFileUrl, useToast } from '../components/ui'
+import { Choice, Field, Spinner, useApi, useFileUrl, useToast } from '../components/ui'
 import { friendlyError } from '../lib/api'
 import { swatch } from '../lib/colours'
+import { THEMES, THEME_IDS, resolveTheme, type ThemeId } from '../lib/theme'
 import type { AdminProduct, AdminQr, AdminRound, AdminState } from '../lib/types'
 import { inr } from '../lib/validate'
 
-export default function Admin() {
+export default function Admin({ onLook }: { onLook(): void }) {
   const api = useApi()
   const toast = useToast()
   const [state, setState] = useState<AdminState | null>(null)
+  const [isSuper, setIsSuper] = useState(false)
+  useEffect(() => {
+    api.admin.isSuper().then(setIsSuper, () => setIsSuper(false))
+  }, [api])
   const [error, setError] = useState<string | null>(null)
   const [roundId, setRoundId] = useState<string>('')
 
@@ -58,6 +63,7 @@ export default function Admin() {
         <div className="admin-col">
           <h2>Round</h2>
           {round && <RoundCard round={round} run={run} />}
+          {round && <LookCard round={round} isSuper={isSuper} run={run} onLook={onLook} />}
           <h2>Payment QR</h2>
           <p className="note">One QR is live at a time. When a UPI limit is hit, add the next person's QR and make it live. Orders started on the old QR still go through for 2 hours.</p>
           {state.qrs.map((q) => <QrRow key={q.id} q={q} run={run} />)}
@@ -77,6 +83,33 @@ export default function Admin() {
 }
 
 type Run = (fn: () => Promise<unknown>, done: string) => Promise<void>
+
+/** The round's look on the order form. Only MART super admins can change it (the database checks too). */
+function LookCard({ round, isSuper, run, onLook }: { round: AdminRound; isSuper: boolean; run: Run; onLook(): void }) {
+  const api = useApi()
+  const current = resolveTheme(round.form?.theme).id
+  return (
+    <div className="card stack look-card">
+      <div className="row-between">
+        <b>Look on the form</b>
+        <span className="badge">{THEMES[current].label}</span>
+      </div>
+      {isSuper ? (
+        <>
+          <Choice<ThemeId> legend="Theme" hideLegend variant="seg" options={THEME_IDS} value={current}
+            render={(id) => THEMES[id].label}
+            onChange={(id) => void run(async () => {
+              await api.admin.setTheme(round.campaign_id, id)
+              onLook()
+            }, `The form now uses ${THEMES[id].label}`)} />
+          <p className="note">Changes colours, words and the garment drawing for everyone ordering in this round, straight away. Only MART super admins see this.</p>
+        </>
+      ) : (
+        <p className="note">Set by MART super admins.</p>
+      )}
+    </div>
+  )
+}
 
 function RoundCard({ round, run }: { round: AdminRound; run: Run }) {
   const api = useApi()

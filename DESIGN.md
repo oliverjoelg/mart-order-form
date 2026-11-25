@@ -16,6 +16,30 @@ A student orders 1–2 polos in under 2 minutes, mostly on a phone, often switch
 - **Returning students skip Details.** If the saved details are complete, the order opens on Items
   with a one-line "Asha Verma · PG26123 · PGDM B · Edit" summary.
 
+## Themes (2026-11-25)
+Each sales round has a look, picked by MART super admins on the Admin tab (`form_rounds.theme` in
+MART Orders; only super admins can change it, enforced in the database). Words and the garment are
+in `src/lib/theme.ts`; colours in `styles.css` under `[data-skin]`. The open round's theme is read
+before sign-in (`form_look()`), so the sign-in page matches. Unknown or missing → Batch T-shirt.
+
+| | Batch T-shirt (`tees`) | Winter Hoodies (`hoodies`) |
+|---|---|---|
+| Garment | 3D polo (2D fallback) | 2D hoodie (3D model later) |
+| Sign-in headline | Wear / the / batch. | Hood / up, / batch. |
+| Paper / ink | cool grey `#eceef1` / `#121726` | frost `#e6ecf3` / midnight `#0e1a2f` |
+| Shirt stage | light grey gradient | winter night `#2b3d5f → #0b1424`, falling snow |
+| Batch numeral | MART orange | ice blue `#8fb8de` |
+| Sign-in, Closed | paper | full-bleed winter night with snow |
+| Action colour | MART orange | MART orange (warmth against the cold) |
+
+## Inside matches the sign-in page
+Every step opens with the sign-in page's headline type (Archivo 900, 125% wide, stretch-in):
+"Who's wearing it?" / "Who's it keeping warm?", "Pick your polo." / "Pick your hoodie." (laptops),
+"Pay ₹1,398.", "Check, then submit.", "My orders.". On laptops nothing sits half-empty: Details has a
+live preview on the right (the garment with the student's first name and batch numeral, plus a name
+tag that fills in as they type), Check-and-submit shows the ordered garments fanned out, and
+My orders is two columns.
+
 ## Identity: one bold thing
 **The batch numeral.** The two digits of the batch printed on the back (`PG'26` → `26`) sit huge
 and outlined in MART orange behind the shirt, like a jersey number. They change when the batch
