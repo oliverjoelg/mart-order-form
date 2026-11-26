@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Api } from './api'
+import { clearDrafts } from './order'
 import { resolveTheme } from './theme'
 import type { AdminState, MyOrder, OrderForm, SubmitResult } from './types'
 
@@ -50,6 +51,11 @@ export function createSupabaseApi(): Api {
     },
 
     async signOut() {
+      try {
+        clearDrafts(localStorage)
+      } catch {
+        /* storage blocked: nothing to clear */
+      }
       await sb.auth.signOut()
     },
 

@@ -134,7 +134,21 @@ export function fitToForm<T extends { lines: Line[]; cur: number }>(d: T, form: 
 }
 
 // ---- draft kept in this browser ----
-export const draftKey = (userId: string, roundId: string) => `mart-order-draft:${userId}:${roundId}`
+export const DRAFT_PREFIX = 'mart-order-draft:'
+export const draftKey = (userId: string, roundId: string) => `${DRAFT_PREFIX}${userId}:${roundId}`
+
+/**
+ * Removes every order draft from this browser. Called on sign-out so the next person on a shared
+ * computer can't find the last student's name, phone and roll number in the browser's storage.
+ */
+export function clearDrafts(store: Pick<Storage, 'length' | 'key' | 'removeItem'>) {
+  const keys: string[] = []
+  for (let i = 0; i < store.length; i++) {
+    const k = store.key(i)
+    if (k?.startsWith(DRAFT_PREFIX)) keys.push(k)
+  }
+  keys.forEach((k) => store.removeItem(k))
+}
 
 interface OldDraft {
   step?: Step

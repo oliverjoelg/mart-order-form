@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  batchNumeral, draftKey, firstBadLine, fitSize, fitToForm, itemCap, lineErrors, lineToCart, linesTotal, newLine, pickProduct, restoreDraft, type Line,
+  batchNumeral, clearDrafts, draftKey, firstBadLine, fitSize, fitToForm, itemCap, lineErrors, lineToCart, linesTotal, newLine, pickProduct, restoreDraft, type Line,
 } from './order'
 import type { FormProduct, OrderForm } from './types'
 
@@ -176,5 +176,18 @@ describe('products changing while the form is open', () => {
     const r = fitToForm({ lines: [line()], cur: 0 }, { ...form, products: [hoodie] })
     expect(r.lines).toHaveLength(1)
     expect(r.lines[0]).toMatchObject({ product_id: 'hoodie', size: 'M' })
+  })
+})
+
+describe('sign-out', () => {
+  it('removes every order draft and nothing else', () => {
+    const data = new Map([['mart-order-draft:u1:r1', '{}'], ['mart-order-draft:u2:r1', '{}'], ['mart-order-form-auth', 'x'], ['other', 'y']])
+    const store = {
+      get length() { return data.size },
+      key: (i: number) => [...data.keys()][i] ?? null,
+      removeItem: (k: string) => void data.delete(k),
+    }
+    clearDrafts(store)
+    expect([...data.keys()]).toEqual(['mart-order-form-auth', 'other'])
   })
 })

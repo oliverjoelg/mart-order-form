@@ -1,6 +1,7 @@
 // `npm run dev:demo`: an in-memory backend with made-up data, for trying the form without
 // accounts. Applies the same rules as submit_order() so errors look real. Not in the production bundle.
 import type { Api } from './api'
+import { clearDrafts } from './order'
 import type { AdminQr, AdminRound, MyOrder, OrderForm, PaymentStatus } from './types'
 import { detailsErrors, normalisePhone, normaliseRoll, normaliseTxn, printNameError, sizeOk, txnError } from './validate'
 
@@ -92,6 +93,11 @@ export function createDemoApi(): Api {
       notify()
     },
     async signOut() {
+      try {
+        clearDrafts(localStorage)
+      } catch {
+        /* storage blocked */
+      }
       signedIn = false
       notify()
     },
