@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  batchNumeral, clearDrafts, draftKey, firstBadLine, fitSize, fitToForm, itemCap, lineErrors, lineToCart, linesTotal, newLine, pickProduct, restoreDraft, type Line,
+  batchNumeral, checkoutErrors, clearDrafts, draftKey, firstBadLine, fitSize, fitToForm, itemCap, lineErrors, lineToCart, linesTotal, newLine, pickProduct, restoreDraft, type Draft, type Line,
 } from './order'
 import type { FormProduct, OrderForm } from './types'
 
@@ -112,31 +112,41 @@ describe('cart', () => {
 })
 
 describe('draft in this browser', () => {
+  const d3 = (over: Partial<Draft> = {}): Draft => ({ v: 3, step: 'customise', details: me, bag: [line()], wip: line({ key: 'w' }), editing: null, txn: '', shot: null, ...over })
   it('is per account and round', () => {
     expect(draftKey('u1', 'r1')).toBe('mart-order-draft:u1:r1')
   })
-  it('starts on Details for a new student and on Items for a returning one', () => {
-    expect(restoreDraft(null, form).step).toBe('details')
+  it('starts on the customiser with an empty bag and one item on the stage', () => {
     const r = restoreDraft(null, { ...form, me })
-    expect(r.step).toBe('items')
-    expect(r.lines).toHaveLength(1)
+    expect(r).toMatchObject({ step: 'customise', bag: [], editing: null })
+    expect(r.wip).toMatchObject({ product_id: 'navy', size: 'M', batch: "PG'26" })
+    expect(r.details).toEqual(me)
   })
   it('survives junk', () => {
-    expect(restoreDraft('{not json', form).lines).toHaveLength(1)
+    expect(restoreDraft('{not json', form).bag).toEqual([])
   })
   it('restores a draft and drops items no longer on sale', () => {
-    const saved = JSON.stringify({ v: 2, step: 'payment', details: me, lines: [line(), line({ key: 'g', product_id: 'gone' })], cur: 1, txn: '123456789012', shot: 'u/s.jpg' })
+    const saved = JSON.stringify(d3({ step: 'checkout', bag: [line(), line({ key: 'g', product_id: 'gone' })], txn: '123456789012', shot: 'u/s.jpg' }))
     const r = restoreDraft(saved, form)
-    expect(r.lines.map((l) => l.key)).toEqual(['k'])
-    expect(r).toMatchObject({ step: 'payment', cur: 0, txn: '123456789012', shot: 'u/s.jpg' })
+    expect(r.bag.map((l) => l.key)).toEqual(['k'])
+    expect(r).toMatchObject({ step: 'checkout', txn: '123456789012', shot: 'u/s.jpg' })
   })
-  it('goes back to Items if a restored item needs fixing', () => {
-    const saved = JSON.stringify({ v: 2, step: 'review', details: me, lines: [line({ name: '' })], cur: 0, txn: '', shot: null })
-    expect(restoreDraft(saved, form).step).toBe('items')
+  it('goes back to the customiser if a bag item needs fixing or the bag is empty', () => {
+    expect(restoreDraft(JSON.stringify(d3({ step: 'checkout', bag: [line({ name: '' })] })), form).step).toBe('customise')
+    expect(restoreDraft(JSON.stringify(d3({ step: 'checkout', bag: [] })), form).step).toBe('customise')
   })
-  it('goes back to Details if the saved details are incomplete', () => {
-    const saved = JSON.stringify({ v: 2, step: 'payment', details: { ...me, phone: '' }, lines: [line()], cur: 0, txn: '', shot: null })
-    expect(restoreDraft(saved, form).step).toBe('details')
+  it('keeps editing a bag item only while it is in the bag', () => {
+    expect(restoreDraft(JSON.stringify(d3({ editing: 'k' })), form).editing).toBe('k')
+    expect(restoreDraft(JSON.stringify(d3({ editing: 'nope' })), form).editing).toBeNull()
+  })
+  it('reads four-step drafts: finished items into the bag, the unfinished one onto the stage', () => {
+    const v2 = JSON.stringify({ v: 2, step: 'items', details: me, lines: [line(), line({ key: 'half', name: '' })], cur: 1, txn: '', shot: null })
+    const r = restoreDraft(v2, form)
+    expect(r.bag.map((l) => l.key)).toEqual(['k'])
+    expect(r.wip.key).toBe('half')
+    expect(r.step).toBe('customise')
+    const paying = JSON.stringify({ v: 2, step: 'review', details: me, lines: [line()], cur: 0, txn: 'X', shot: 's' })
+    expect(restoreDraft(paying, form)).toMatchObject({ step: 'checkout', txn: 'X', shot: 's' })
   })
   it('reads drafts saved before the redesign', () => {
     const old = JSON.stringify({
@@ -147,35 +157,47 @@ describe('draft in this browser', () => {
       ],
     })
     const r = restoreDraft(old, form)
-    expect(r.lines).toHaveLength(2)
-    expect(r.lines[0]).toMatchObject({ no_name: true, name: '', size: 'M', custom: false })
-    expect(r.lines[1]).toMatchObject({ custom: true, custom_size: 'Chest 44', name: 'RAVI' })
-    expect(r.cur).toBe(1)
-    expect(r.step).toBe('payment')
-    expect(r.lines.map(lineToCart)[1]).toEqual({ key: 'b', product_id: 'navy', size: 'Chest 44', print_name: 'RAVI', print_batch: "PG'25" })
+    expect(r.bag).toHaveLength(2)
+    expect(r.bag[0]).toMatchObject({ no_name: true, name: '', size: 'M', custom: false })
+    expect(r.bag[1]).toMatchObject({ custom: true, custom_size: 'Chest 44', name: 'RAVI' })
+    expect(r.step).toBe('checkout')
+    expect(r.bag.map(lineToCart)[1]).toEqual({ key: 'b', product_id: 'navy', size: 'Chest 44', print_name: 'RAVI', print_batch: "PG'25" })
   })
   it('never restores more items than the round allows', () => {
-    const saved = JSON.stringify({ v: 2, step: 'items', details: me, lines: Array.from({ length: 8 }, (_, i) => line({ key: String(i) })), cur: 7, txn: '', shot: null })
-    const r = restoreDraft(saved, { ...form, round: { ...form.round!, item_cap: 3 } })
-    expect(r.lines).toHaveLength(3)
-    expect(r.cur).toBe(2)
+    const saved = JSON.stringify(d3({ bag: Array.from({ length: 8 }, (_, i) => line({ key: String(i) })) }))
+    expect(restoreDraft(saved, { ...form, round: { ...form.round!, item_cap: 3 } }).bag).toHaveLength(3)
+  })
+})
+
+describe('checkout', () => {
+  const ready: Draft = { v: 3, step: 'checkout', details: me, bag: [line()], wip: line({ key: 'w' }), editing: null, txn: '123456789012', shot: 'u/s.jpg' }
+  const withQr = { ...form, qr: { id: 'q', payee_name: 'MART', upi_id: null, image_path: 'qr/a.png' } }
+  it('is ready only with items, details, a live QR, a UTR and a screenshot', () => {
+    expect(checkoutErrors(ready, withQr)).toEqual([])
+    expect(checkoutErrors({ ...ready, bag: [] }, withQr)).toContain('Your bag is empty.')
+    expect(checkoutErrors({ ...ready, details: { ...me, phone: '' } }, withQr)).toContain('Fill in your details.')
+    expect(checkoutErrors({ ...ready, shot: null }, withQr)).toContain('Add the payment screenshot.')
+    expect(checkoutErrors({ ...ready, txn: '' }, withQr)).toContain('Add the UPI transaction ID.')
+    expect(checkoutErrors(ready, form)).toContain("Payment isn't open yet.")
+    expect(checkoutErrors({ ...ready, bag: [line({ name: '' })] }, withQr)[0]).toMatch(/^Item 1:/)
   })
 })
 
 describe('products changing while the form is open', () => {
+  const d = (over: Partial<Draft> = {}): Draft => ({ v: 3, step: 'customise', details: me, bag: [line()], wip: line({ key: 'w' }), editing: null, txn: '', shot: null, ...over })
   it('leaves a draft alone when every item is still on sale', () => {
-    const d = { lines: [line()], cur: 0 }
-    expect(fitToForm(d, form)).toBe(d)
+    const x = d()
+    expect(fitToForm(x, form)).toBe(x)
   })
-  it('drops items whose product left and keeps cur in range', () => {
-    const d = { lines: [line(), line({ key: 'g', product_id: 'gone' })], cur: 1 }
-    expect(fitToForm(d, form)).toMatchObject({ lines: [{ key: 'k' }], cur: 0 })
+  it('drops bag items whose product left', () => {
+    expect(fitToForm(d({ bag: [line(), line({ key: 'g', product_id: 'gone' })] }), form).bag.map((l) => l.key)).toEqual(['k'])
   })
-  it('starts a fresh item when none are left (e.g. the round switched from polos to hoodies)', () => {
+  it('puts a product on sale on the stage when the round switched (polos to hoodies)', () => {
     const hoodie = { ...navy, id: 'hoodie', colour: 'Maroon' }
-    const r = fitToForm({ lines: [line()], cur: 0 }, { ...form, products: [hoodie] })
-    expect(r.lines).toHaveLength(1)
-    expect(r.lines[0]).toMatchObject({ product_id: 'hoodie', size: 'M' })
+    const r = fitToForm(d({ step: 'checkout' }), { ...form, products: [hoodie] })
+    expect(r.bag).toEqual([])
+    expect(r.wip).toMatchObject({ product_id: 'hoodie', size: 'M' })
+    expect(r.step).toBe('customise')
   })
 })
 

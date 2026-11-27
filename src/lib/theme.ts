@@ -12,6 +12,8 @@ export interface Theme {
   garment: Garment
   /** "polo" / "hoodie": used in headings and buttons */
   noun: string
+  /** the giant word behind the garment */
+  word: string
   heroLines: [string, string, string]
   lede: string
   ticker: string[]
@@ -30,6 +32,7 @@ export const THEMES: Record<ThemeId, Theme> = {
     label: 'Batch T-shirt',
     garment: 'polo',
     noun: 'polo',
+    word: 'the batch',
     heroLines: ['Wear', 'the', 'batch.'],
     lede: 'MART merch for MDI Gurgaon. Pick the colour and size, put your name on the back, pay by UPI. Two minutes, start to finish.',
     ticker: ['Navy Blue', 'Baby Pink', 'Black', 'White', 'Your name on the back', 'Batch on the back'],
@@ -44,6 +47,7 @@ export const THEMES: Record<ThemeId, Theme> = {
     label: 'Winter Hoodies',
     garment: 'hoodie',
     noun: 'hoodie',
+    word: 'mandevian',
     heroLines: ['Hood', 'up,', 'batch.'],
     lede: 'MART winter hoodies for MDI Gurgaon. Pick the colour and size, put your name on the back, pay by UPI. Two minutes, then stay warm.',
     ticker: ['Winter hoodies', 'Fleece inside', 'Your name on the back', 'Batch on the back', 'Collect from MART'],
