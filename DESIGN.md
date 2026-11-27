@@ -1,142 +1,68 @@
 # MART order form: design
 
-Direction **A, "Fitting room"** (chosen by Oliver, 2026-11-24, from the mockups at
-https://claude.ai/artifact/B8QYJ9yQToSBSBPiyFZaMw), plus B's one-line details for returning students.
-Pushed further to become MART's identity: *Wear the batch.*
+**The drop** (2026-11-27). Oliver asked for a full redo in a streetwear-drop direction: "like a
+sneaker or merch drop site: huge product imagery, bold stickers and badges, marquee text,
+high-contrast black and one loud colour." Replaces the grey-and-orange "Fitting room" look.
+Product facts live in PRODUCT.md; the direction contract in `.impeccable/surfaces/`.
 
-## The job
-A student orders 1–2 polos in under 2 minutes, mostly on a phone, often switching to a UPI app and back.
+## The idea
+A merch drop, not a form. The garment is the product shot, big on black, and the student's own
+name prints onto it as they type. Everything else stays quiet and black so the garment and the one
+loud colour do the talking.
 
-- **One screen per step, one card per item.** Colour, size, back name and batch for an item fit on
-  one 360px screen without scrolling.
-- **The bottom bar is the way forward.** It is always there on phones, with the running total and the
-  next action. Nobody scrolls to find "Next".
-- **The shirt serves the choice.** It's a small live stage beside the colours on phones, and a big
-  sticky stage on laptops. It shows the back by default, because that's what the student customises.
-- **Returning students skip Details.** If the saved details are complete, the order opens on Items
-  with a one-line "Asha Verma · PG26123 · PGDM B · Edit" summary.
+## Colour: one look, on purpose
+Single dark look in both system themes (students order at night in the hostel; black makes the
+garment the brightest thing on screen).
 
-## Themes (2026-11-25)
-Each sales round has a look, picked by MART super admins on the Admin tab (`form_rounds.theme` in
-MART Orders; only super admins can change it, enforced in the database). Words and the garment are
-in `src/lib/theme.ts`; colours in `styles.css` under `[data-skin]`. The open round's theme is read
-before sign-in (`form_look()`), so the sign-in page matches. Unknown or missing → Batch T-shirt.
-
-| | Batch T-shirt (`tees`) | Winter Hoodies (`hoodies`) |
-|---|---|---|
-| Garment | 3D polo (2D fallback) | 2D hoodie (3D model later) |
-| Sign-in headline | Wear / the / batch. | Hood / up, / batch. |
-| Paper / ink | cool grey `#eceef1` / `#121726` | frost `#e6ecf3` / midnight `#0e1a2f` |
-| Shirt stage | light grey gradient | winter night `#2b3d5f → #0b1424`, falling snow |
-| Batch numeral | MART orange | ice blue `#8fb8de` |
-| Sign-in, Closed | paper | full-bleed winter night with snow |
-| Action colour | MART orange | MART orange (warmth against the cold) |
-
-## Inside matches the sign-in page
-Every step opens with the sign-in page's headline type (Archivo 900, 125% wide, stretch-in):
-"Who's wearing it?" / "Who's it keeping warm?", "Pick your polo." / "Pick your hoodie." (laptops),
-"Pay ₹1,398.", "Check, then submit.", "My orders.". On laptops nothing sits half-empty: Details has a
-live preview on the right (the garment with the student's first name and batch numeral, plus a name
-tag that fills in as they type), Check-and-submit shows the ordered garments fanned out, and
-My orders is two columns.
-
-## Identity: one bold thing
-**The batch numeral.** The two digits of the batch printed on the back (`PG'26` → `26`) sit huge
-and outlined in MART orange behind the shirt, like a jersey number. They change when the batch
-changes. The same numeral shows on the Done tag and the login hero. Everything around it stays quiet:
-grey paper, ink, one orange.
-
-Supporting moves (all in service of that one idea):
-- The wordmark and headlines use Archivo's **width axis** expressively: 125% wide, weight 900.
-- Back names, sizes on tags, and order codes are set in **Michroma**, the print face, so what you
-  type looks like what gets printed.
-- The **garment tag** carries the order from start to finish, because that's what you get with a
-  shirt. On Items, the size, back name and batch sit on a cream tag (clipped top corners, punched
-  hole with a string up to the shirt, a tear line, and the price at the foot). Each item is a mini
-  luggage tag in the item strip and the laptop rail, and the one being edited is filled (ink in light
-  mode, orange in dark). The receipt and the Done screen are tags too. Tags are always light card
-  stock (`--tag`) in both themes, so controls on a tag use fixed light-theme colours. Added
-  2026-11-24 at Oliver's request, from the mockup at https://claude.ai/artifact/11WdEQyqa2iWRgT8uom3kd.
-
-## Tokens
-
-### Colour
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `--paper` | `#eceef1` | `#0d1018` | page |
-| `--card` | `#fbfbfc` | `#161a24` | cards, dock, inputs |
-| `--ink` | `#121726` | `#eef0f5` | text, selected chips |
-| `--muted` | `#586074` | `#9aa2b5` | secondary text |
-| `--line` | `#d4d8e1` | `#2a3040` | borders |
-| `--orange` | `#c8431a` | `#f2763f` | MART orange: primary action, batch numeral, focus of attention |
-| `--orange-ink` | `#ffffff` | `#1a0b04` | text on orange |
-| `--stage-1` / `--stage-2` | `#f9fafb` / `#d8dce5` | `#252b39` / `#0d1018` | shirt stage gradient |
-| `--ok` | `#1d7a46` | `#4cc38a` | payment confirmed, collected |
-| `--bad` | `#b42318` | `#ff7a6b` | errors |
-| `--focus` | `#2b59d9` | `#8fb0ff` | focus ring, links |
-| `--tag` | `#f6f3ee` | `#f6f3ee` | garment tag (always light, like card stock) |
-| `--tag-on` / `--tag-on-ink` | `#121726` / `#f6f3ee` | `#f2763f` / `#1a0b04` | the item tag being edited |
-
-Orange is used only for: the main action, the batch numeral, the active step, and the "new" order
-highlight. Status colours (ok/bad) never stand in for the accent.
-
-### Type
-| Role | Face | Setting |
-|---|---|---|
-| Display (wordmark, h1, prices in the dock) | Archivo | 900, `font-stretch: 125%`, tight leading 0.95 |
-| Headings (h2/h3) | Archivo | 800, `font-stretch: 112%` |
-| Body, labels, buttons | Inter | 400/500/600/700, 15px base, sentence case |
-| Print (back name, tag sizes, order code) | Michroma | 0.12em tracking, uppercase only where the print is uppercase |
-
-Scale (px): 12 · 13 · 15 · 17 · 22 · 28 · 40 · clamp(44, 13vw, 88).
-No all-caps eyebrow labels. Labels are sentence case, 13px, 600.
-
-### Spacing
-4px base: `--s1` 4 · `--s2` 8 · `--s3` 12 · `--s4` 16 · `--s5` 24 · `--s6` 32 · `--s7` 48.
-Side gutter is 16px on phones and 32px on laptops. Groups are spaced with `gap`, never with margins.
-
-### Radius
-`--r-chip` 10 (size chips, batch segments) · `--r-ctl` 14 (inputs, buttons) · `--r-card` 20
-(stage, cards) · `999px` (pills, swatches). Tags use 6px with a punched hole.
-
-### Elevation
-Flat by default. There are only two shadows: the dock (`0 -8px 24px` at 8% ink), and the shirt's
-own drop shadow. Cards don't get shadows.
-
-### Motion
 | Token | Value | Use |
 |---|---|---|
-| `--t-fast` | 140ms | chip/swatch press, button feedback |
-| `--t-med` | 280ms | step change (fade + 8px rise), numeral swap |
-| `--t-slow` | 650ms | the one orchestrated moment per screen: login headline width-stretch, Done tag swing |
-| `--ease-out` | `cubic-bezier(.2,.7,.2,1)` | default |
-| `--ease-swing` | `cubic-bezier(.34,1.56,.64,1)` | tag swing only |
+| `--paper` | `#000000` | page |
+| `--card` | `#111111` (surfaces `#0b0b0b`–`#0d0d0d`) | fields, cards, rail |
+| `--ink` | `#ffffff` | text, selected chips (white with black text) |
+| `--muted` | `#a7a7a7` | secondary text |
+| `--line` | `#2c2c2c` (`#333` on fields) | borders |
+| `--loud` | **Volt `#c8ff2e`** (Batch T-shirt) / **Periwinkle `#9aa6ff`** (Winter Hoodies, the real hoodie print colour) | marquee, primary buttons, price sticker, current item, links, focus, batch numeral, last line of the sign-in headline |
+| `--tag`, `--tag-ink`, `--tag-muted` | `#f3eee4`, `#111111`, `#5f5a52` | the garment tag: always light card stock |
+| `--ok`, `--bad` | `#5fe08f`, `#ff6f61` | status |
 
-Only `transform` and `opacity` are animated. With `prefers-reduced-motion: reduce`, every
-transition becomes a ≤150ms opacity fade, the login ticker stops, and the shirt is the 2D version.
+Text on the loud colour is always black. The theme only swaps `--loud` (`:root[data-skin='hoodies']`).
+
+## Type
+| Role | Face | Setting |
+|---|---|---|
+| Display (wordmark, headlines, tabs, buttons, labels, stickers, marquee) | **Big Shoulders Display**, self-hosted in `src/assets/fonts/` | 800–900, all caps, line-height .86–.88 |
+| UI text | Archivo (Google Fonts) | 400–800, sentence case |
+| Print (back name, sizes on tags, order code) | Michroma | tracked .08–.16em |
+
+Headlines: sign-in up to `min(12vw, 23vh, 210px)` on laptops, `34vw` on phones; step headlines
+`clamp(48px, 15vw, 104px)`.
+
+## The drop's devices
+- **Marquee band** under the top bar on every order step and the sign-in ticker: the round's own
+  title and note (its real closing time) on repeat, in the loud colour. No invented scarcity.
+- **The product shot** (Items): black studio stage with a spotlight; garment centred with a faint
+  white rim light (so black and brown garments keep their edge); batch numeral outlined behind;
+  **stickers**: price (loud, rotated −6°) and the back name (white, Michroma, rotated 4°); the colour
+  name huge at the bottom-left with the swatches beside it.
+- **Garment tag** (kept brand commitment): the cream item card (size, back name, batch, price),
+  mini luggage tags for the item strip and laptop rail (current one in the loud colour), the
+  receipt and the Done tag.
+- **Snow** on winter rounds (stage, sign-in), behind content; stops with reduced motion.
 
 ## Layout
-- **Phone (<960px):** sticky top bar (wordmark, Order / My orders / Admin). Under it, a progress line
-  shows four segments and the step's name. Then the content, then the **dock**, which is sticky to the
-  bottom and holds the total and the actions. The toast sits above the dock.
-- **Laptop (≥960px):** content up to 1180px wide. The Items step has three columns: a sticky shirt
-  stage, the item card, and an order rail with the lines, total and Pay. The rail replaces the dock.
-  Other steps use a 2-column layout where it helps (Payment: the QR ticket beside the fields).
+- Phone: the Items step fits one 360×780 screen (tag ends at the bottom bar): marquee, slim details
+  line, item strip, product shot 206px, tag, bottom bar (total, + Add, Pay).
+- Laptop ≥960px: product shot as a tall sticky column (left), headline + tag (middle), the order as a
+  stack of tags (right). Details and Check-and-submit pair the form with a stage on the right;
+  My orders is two columns.
 
-## States (per frontend-design-direction)
-| State | Where | What the student sees |
-|---|---|---|
-| Loading | app start, My orders, Admin | wordmark + spinner in place, layout doesn't jump |
-| Empty | no products on sale; no orders yet | a sentence plus the next action ("Watch the MART group", "Place an order") |
-| Error | network/database | the specific message from `friendlyError`, plus "Try again" |
-| Partial | QR not live yet | items saved in this browser; payment says it isn't open yet |
-| Success | Done | garment tag with the order code, items and total; "See my orders" |
-| Permission | non-MDI account, team-only round, in-app browser | says exactly who can order and what to do |
+## Radius, depth, motion
+Radius 8px controls, 10px fields, 14px stage/cards, 6px stickers. Depth only from soft shadows under
+stickers and garments. Motion: marquee/ticker loops, the headline stretch-in, the Done tag drop-in
+(ease-out `cubic-bezier(.16,1,.3,1)`); reduced motion turns them into short fades and stops the loops.
 
-## Accessibility
-- All choice groups (colour, size, batch, course, section) are native radio inputs styled as chips,
-  so arrow keys and screen readers work without extra code.
-- Inputs have `<label>`s. Errors are linked with `aria-describedby` and announced.
-- Touch targets are at least 44px. Focus is a 2px `--focus` ring with a 2px offset.
-- Contrast: ink on paper is above 14:1, orange-ink on orange is above 4.5:1 in both themes.
-- No sideways scroll at 360px.
+## Garments
+Polo: the 3D model (2D fallback). Hoodie: the 2D drawing after the 2026-11-27 design sheet: oversized,
+"mandevian" on the back with the name under a rule, MDI GURGAON on the chest, batch year stacked on
+the lower front. Colours black / brown / cream with lavender or sky-blue print (`hoodieInk`). The
+lettering is a font stand-in until the real artwork arrives; 3D models from photos are pending.

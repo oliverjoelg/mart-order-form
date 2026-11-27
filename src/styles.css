@@ -1,56 +1,53 @@
 /* MART: "Wear the batch." Tokens and rationale in DESIGN.md. Phone first (checked at 360px). */
-:root {
-  --paper: #eceef1;
-  --card: #fbfbfc;
-  --ink: #121726;
-  --muted: #586074;
-  --line: #d4d8e1;
-  --orange: #c8431a;
-  --orange-ink: #ffffff;
-  --stage-1: #f9fafb;
-  --stage-2: #d8dce5;
-  --ok: #1d7a46;
-  --bad: #b42318;
-  --focus: #2b59d9;
-  --tag: #f6f3ee;
-  --tag-ink: #121726;
-  --tag-muted: #6a6f7c;
-  --tag-on: #121726;
-  --numeral: var(--orange);
-  --snow: rgba(255, 255, 255, .88);
-  --tag-on-ink: #f6f3ee;
-  --shadow: rgba(18, 23, 38, .08);
+/* Self-hosted display face (impeccable font-fetch). */
+@font-face { font-family: 'Big Shoulders Display'; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url('./assets/fonts/big-shoulders-display-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Big Shoulders Display'; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url('./assets/fonts/big-shoulders-display-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 
-  --display: 'Archivo', 'Arial Black', system-ui, sans-serif;
-  --body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+/* The drop: one look, on purpose. True black, white type, one loud colour per round
+   (Volt for Batch T-shirt, the hoodie print's periwinkle for Winter Hoodies). Students order at
+   night in the hostel on phones; black makes the garment the brightest thing on screen. */
+:root {
+  --paper: #000000;
+  --card: #111111;
+  --ink: #ffffff;
+  --muted: #a7a7a7;
+  --line: #2c2c2c;
+  --loud: #c8ff2e;
+  --orange: var(--loud);
+  --orange-ink: #000000;
+  --stage-1: #232323;
+  --stage-2: #050505;
+  --ok: #5fe08f;
+  --bad: #ff6f61;
+  --focus: var(--loud);
+  --tag: #f3eee4;
+  --tag-ink: #111111;
+  --tag-muted: #5f5a52;
+  --tag-on: var(--loud);
+  --tag-on-ink: #000000;
+  --numeral: var(--loud);
+  --snow: rgba(255, 255, 255, .85);
+  --shadow: rgba(0, 0, 0, .5);
+
+  --display: 'Big Shoulders Display', 'Archivo Narrow', 'Archivo', sans-serif;
+  --body: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --print: 'Michroma', 'Archivo', system-ui, sans-serif;
   --mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
-  --r-chip: 10px; --r-ctl: 14px; --r-card: 20px;
+  --r-chip: 8px; --r-ctl: 10px; --r-card: 14px;
   --t-fast: 140ms; --t-med: 280ms; --t-slow: 650ms;
-  --ease-out: cubic-bezier(.2, .7, .2, 1);
-  --ease-swing: cubic-bezier(.34, 1.56, .64, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-swing: cubic-bezier(.16, 1, .3, 1);
   --gutter: 16px;
-  --top: calc(56px + env(safe-area-inset-top, 0px));
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --paper: #0d1018; --card: #161a24; --ink: #eef0f5; --muted: #9aa2b5; --line: #2a3040;
-    --orange: #f2763f; --orange-ink: #1a0b04; --stage-1: #252b39; --stage-2: #0d1018;
-    --ok: #4cc38a; --bad: #ff7a6b; --focus: #8fb0ff; --shadow: rgba(0, 0, 0, .4);
-    --tag-on: #f2763f; --tag-on-ink: #1a0b04;
-    color-scheme: dark;
-  }
-}
-:root[data-theme='dark'] {
-  --paper: #0d1018; --card: #161a24; --ink: #eef0f5; --muted: #9aa2b5; --line: #2a3040;
-  --orange: #f2763f; --orange-ink: #1a0b04; --stage-1: #252b39; --stage-2: #0d1018;
-  --ok: #4cc38a; --bad: #ff7a6b; --focus: #8fb0ff; --shadow: rgba(0, 0, 0, .4);
-  --tag-on: #f2763f; --tag-on-ink: #1a0b04;
+  --top: calc(52px + env(safe-area-inset-top, 0px));
   color-scheme: dark;
 }
+:root[data-skin='hoodies'] { --loud: #9aa6ff; }
 @media (min-width: 960px) { :root { --gutter: 32px; } }
 @media (max-width: 400px) {
   .topbar .wordmark { font-size: 19px; gap: 6px; }
@@ -416,7 +413,7 @@ button.line-btn:hover { background: transparent; }
 }
 button.line-btn { cursor: pointer; }
 button.line-btn:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
-.lines li.on .line-btn { box-shadow: inset 3px 0 0 var(--orange); padding-left: 10px; }
+.lines li.on .line-btn { background: color-mix(in srgb, var(--loud) 14%, transparent); }
 .line-text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
 .line-text b { font-size: 14px; }
 .line-text small { font-size: 12.5px; color: var(--muted); }
@@ -566,7 +563,7 @@ button.line-btn:hover { background: color-mix(in srgb, var(--ink) 4%, transparen
 .tracked > li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: start; }
 .tracked > li > .dot { margin-top: 2px; }
 .track { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 10px 0 0; padding: 0; }
-.track li { font-size: 11px; line-height: 1.2; color: var(--muted); border-top: 4px solid var(--line); padding-top: 6px; border-radius: 2px; }
+.track li { font-size: 11px; line-height: 1.2; color: var(--muted); border-top: 4px solid var(--line); padding-top: 6px; }
 .track li.on { border-top-color: var(--ok); color: var(--ink); }
 .track li[aria-current='step'] { font-weight: 700; }
 .orders .signed { margin-top: var(--s5); }
@@ -654,48 +651,189 @@ button.line-btn:hover { background: color-mix(in srgb, var(--ink) 4%, transparen
 .snow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
 .snow-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
 
-/* ======================================================================
-   Winter Hoodies skin. Frost paper, midnight ink, a night stage with snow, ice-blue numeral.
-   MART orange stays the action colour: warmth against the cold.
-   ====================================================================== */
-:root[data-skin='hoodies'] {
-  --paper: #e6ecf3; --card: #f7f9fc; --ink: #0e1a2f; --muted: #4c5a72; --line: #c9d3e0;
-  --orange: #c8431a; --orange-ink: #ffffff; --focus: #2b59d9;
-  --stage-1: #2b3d5f; --stage-2: #0b1424; --stage-ink: #eaf1f8;
-  --numeral: #8fb8de; --snow: rgba(255, 255, 255, .85);
-  --tag-on: #0e1a2f; --shadow: rgba(14, 26, 47, .1);
+/* =====================================================================
+   THE DROP. Everything below re-voices the components above in the drop's grammar:
+   condensed caps for display, the loud colour on whole regions, stickers on the product shot.
+   ===================================================================== */
+body { font-family: var(--body); background: #000; }
+::selection { background: var(--loud); color: #000; }
+html { scrollbar-color: #3a3a3a #000; }
+h1, h2, h3 { font-family: var(--display); font-weight: 900; text-transform: uppercase; letter-spacing: .005em; line-height: .88; }
+h1 { font-size: clamp(44px, 13vw, 76px); }
+h2 { font-size: 30px; }
+.lede { color: var(--muted); }
+
+/* top bar */
+.topbar { background: #000; border-bottom: 1px solid #1c1c1c; backdrop-filter: none; -webkit-backdrop-filter: none; height: var(--top); }
+.wordmark, .topbar .wordmark { font: 900 30px/1 var(--display); letter-spacing: .02em; }
+.demo { background: var(--loud); color: #000; font-family: var(--body); }
+.tabs a, .topbar .tabs a { font: 800 17px/1 var(--display); text-transform: uppercase; letter-spacing: .04em; color: #8d8d8d; }
+.tabs a[aria-current='page'] { color: #fff; }
+.tabs a[aria-current='page']::after { background: var(--loud); height: 3px; }
+
+/* the loud band: the round's own words on repeat */
+.marquee { overflow: hidden; background: var(--loud); color: #000; margin: var(--s3) calc(-1 * max(var(--gutter), env(safe-area-inset-left, 0px))) var(--s3); }
+.marquee-track { display: flex; width: max-content; animation: ticker 26s linear infinite; }
+.marquee-track > span { display: inline-flex; }
+.marquee .tick { display: inline-flex; align-items: center; gap: 14px; padding: 7px; font: 900 17px/1 var(--display); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+.marquee .tick i { width: 8px; height: 8px; background: #000; transform: rotate(45deg); display: inline-block; }
+@media (min-width: 960px) { .marquee { margin-inline: calc(50% - 50vw); } }
+
+/* progress: a thin bar; the step's name is the headline, so the label is for screen readers */
+.progress { margin-top: 2px; }
+.progress li { height: 3px; border-radius: 0; background: #262626; }
+.progress li.done { background: #fff; }
+.progress li[aria-current='step'] { background: var(--loud); }
+.progress-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+.order { padding-top: var(--s2); }
+
+/* buttons, fields */
+.btn { border-radius: 8px; font: 800 19px/1 var(--display); text-transform: uppercase; letter-spacing: .04em; min-height: 52px; }
+.btn.primary { background: var(--loud); border-color: var(--loud); color: #000; }
+.btn.primary:hover:not(:disabled) { background: #fff; border-color: #fff; }
+.btn.ghost { background: transparent; border-color: #3a3a3a; color: #fff; }
+.btn.ghost:hover:not(:disabled) { border-color: #fff; }
+.btn.add-tag { border-color: var(--loud); color: var(--loud); }
+.link { color: var(--loud); }
+.input { background: #0d0d0d; border-color: #333; color: #fff; }
+.input:focus { border-color: var(--loud); box-shadow: 0 0 0 3px color-mix(in srgb, var(--loud) 25%, transparent); }
+.field-top > label, .field-top .label { text-transform: uppercase; font: 800 14px/1 var(--display); letter-spacing: .06em; color: #cfcfcf; }
+.opt > span { background: #0d0d0d; border-color: #333; }
+.opt input:checked + span { background: #fff; color: #000; border-color: #fff; }
+.toast > span { background: #fff; color: #000; font-weight: 600; }
+.dock { background: #000; border-top: 1px solid #222; box-shadow: 0 -12px 28px rgba(0, 0, 0, .7); }
+.dock .tot b { font: 900 28px/1 var(--display); }
+.who { background: #0d0d0d; border-color: #222; }
+.who-text b { color: #fff; }
+
+/* ---------- the product shot (Items) ---------- */
+.stage-box {
+  border-radius: 14px;
+  background: radial-gradient(60% 55% at 50% 40%, #3d3d3d 0%, #161616 55%, #000 100%);
+  border: 1px solid #1d1d1d;
 }
-@media (prefers-color-scheme: dark) {
-  :root[data-skin='hoodies']:not([data-theme='light']) {
-    --paper: #0a1120; --card: #111b2d; --ink: #eaf1f8; --muted: #93a3ba; --line: #22314a;
-    --orange: #f2763f; --orange-ink: #1a0b04; --focus: #8fb0ff;
-    --stage-1: #22324f; --stage-2: #070d18; --tag-on: #f2763f; --shadow: rgba(0, 0, 0, .45);
-    color-scheme: dark;
+.item-card { display: flex; flex-direction: column; gap: 12px; }
+.item-card > .stage-box { height: 250px; width: 100%; --numeral-size: min(78cqw, 92cqh); --numeral-stroke: 1.5px; }
+.stage-box .numeral { opacity: .55; }
+.stage-box .stage { inset: 4px 14% 40px; }
+.stage-box .flipper { inset: 0; }
+.stage-meta { top: 10px; right: 12px; left: auto; bottom: auto; color: #9d9d9d; font: 800 12px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; }
+.stage-meta .view-label { display: none; }
+/* rim light: a black or brown garment keeps its edge on the black stage */
+.stage-box .polo, .side-stage .polo, .fan .polo { filter: drop-shadow(0 0 1px rgba(255, 255, 255, .45)) drop-shadow(0 18px 24px rgba(0, 0, 0, .7)); }
+.sticker {
+  position: absolute; z-index: 3; margin: 0; padding: 6px 10px 5px; border-radius: 6px;
+  font: 900 24px/1 var(--display); text-transform: uppercase; letter-spacing: .02em;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .55);
+  pointer-events: none;
+}
+.sticker-price { top: 12px; left: 12px; background: var(--loud); color: #000; transform: rotate(-6deg); }
+.sticker-name { top: 52px; left: 14px; background: #fff; color: #000; font: 400 12px/1.1 var(--print); letter-spacing: .12em; padding: 6px 9px; transform: rotate(4deg); max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-foot {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px;
+  padding: 26px 12px 10px; background: linear-gradient(0deg, rgba(0, 0, 0, .85), rgba(0, 0, 0, 0));
+}
+.stage-title { min-width: 0; }
+.stage-title h2 { font-size: 34px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-title .pick-line { margin: 3px 0 0; color: #a9a9a9; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-foot .choice { flex: none; }
+.stage-foot .opts.swatches { gap: 2px; }
+.stage-foot .opts.swatches .opt > span { background: transparent; }
+.stage-foot .opts.swatches .opt input:checked + span { border-color: var(--loud); background: transparent; }
+.swatch { width: 28px; height: 28px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); }
+.pick-desc { color: #9a9a9a; }
+@media (max-width: 959px) { .item-card > .pick-desc { display: none; } }
+
+/* the item strip: mini tags, the one being edited in the loud colour */
+.bag li.on { background: var(--loud); color: #000; }
+.bag li.add { border-color: var(--loud); }
+.bag-add { color: var(--loud); }
+
+@media (min-width: 960px) {
+  .items {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) 280px; column-gap: var(--s5);
+    grid-template-areas: 'stage hero rail' 'stage who rail' 'stage opts rail' 'stage desc rail';
+    grid-template-rows: auto auto auto 1fr;
   }
+  .item-card { display: contents; }
+  .item-card > .stage-box {
+    grid-area: stage; position: sticky; top: calc(var(--top) + 12px);
+    height: min(760px, calc(100svh - var(--top) - 80px)); min-height: 480px; --numeral-size: min(70cqw, 60cqh); --numeral-stroke: 3px;
+  }
+  .stage-box .stage { inset: 70px 10% 110px; }
+  .sticker-price { top: 20px; left: 20px; font-size: 40px; padding: 8px 14px 6px; }
+  .sticker-name { top: 84px; left: 26px; font-size: 16px; }
+  .stage-foot { padding: 40px 22px 18px; }
+  .stage-title h2 { font-size: 64px; }
+  .stage-title .pick-line { font-size: 14px; }
+  .swatch { width: 34px; height: 34px; }
+  .item-card > .pick-desc { grid-area: desc; margin: 0; }
+  .items .item-opts { margin-top: 22px; }
+  .items-hero { font-size: clamp(48px, 4.6vw, 72px); }
+  .rail { background: #0b0b0b; border-color: #1f1f1f; }
+  .rail h2 { font-size: 34px; }
+  .rail-total { border-top-color: #fff; }
+  .rail-total b { font: 900 40px/1 var(--display); }
 }
-:root[data-skin='hoodies'][data-theme='dark'] {
-  --paper: #0a1120; --card: #111b2d; --ink: #eaf1f8; --muted: #93a3ba; --line: #22314a;
-  --orange: #f2763f; --orange-ink: #1a0b04; --focus: #8fb0ff;
-  --stage-1: #22324f; --stage-2: #070d18; --tag-on: #f2763f; --shadow: rgba(0, 0, 0, .45);
-  color-scheme: dark;
+
+/* other steps: same voice */
+.step-hero { font-size: clamp(48px, 15vw, 104px); letter-spacing: .005em; line-height: .86; }
+.amount-head { font-size: clamp(56px, 17vw, 120px); }
+.amount-head span { color: var(--loud); font-weight: 900; }
+.round-line b { color: var(--loud); }
+.side-stage { background: radial-gradient(70% 60% at 50% 40%, #262626 0%, #080808 72%); border: 1px solid #1d1d1d; }
+.side-caption { font: 900 28px/1 var(--display); text-transform: uppercase; color: #fff; }
+.kv-total dd, .kv-total dt { font-family: var(--display); font-weight: 900; text-transform: uppercase; }
+.order-card { background: #0b0b0b; border-color: #1f1f1f; }
+.order-card .price { font: 900 30px/1 var(--display); }
+.order-card.fresh { border-color: var(--loud); box-shadow: 0 0 0 3px color-mix(in srgb, var(--loud) 25%, transparent); }
+.track li.on { border-top-color: var(--loud); }
+.card { background: #0b0b0b; border-color: #1f1f1f; }
+.badge.ok { background: color-mix(in srgb, var(--loud) 18%, transparent); color: var(--loud); }
+
+/* ---------- sign-in and closed: the drop page ---------- */
+.app.page-login, .app:has(.closed) { background: #000; }
+/* content above the falling snow */
+.login > :not(.snow-layer), .closed > :not(.snow-layer) { position: relative; z-index: 1; }
+.hero { font-size: clamp(96px, 34vw, 230px); line-height: .8; font-weight: 900; text-transform: uppercase; letter-spacing: 0; }
+.hero span:last-child { color: var(--loud); }
+.closed .hero { font-size: clamp(76px, 26vw, 170px); }
+.login .lede, .closed .lede { color: #bdbdbd; font-size: 17px; }
+.fan .polo { filter: drop-shadow(0 24px 30px rgba(0, 0, 0, .8)); }
+.ticker { background: var(--loud); color: #000; }
+.ticker-track > span, .ticker .tick { font: 900 19px/1 var(--display); text-transform: uppercase; letter-spacing: .03em; }
+.ticker i { background: #000; border-radius: 0; transform: rotate(45deg); width: 9px; height: 9px; box-shadow: none; }
+@media (min-width: 900px) { .hero { font-size: min(12vw, 23vh, 210px); } .closed .hero { font-size: min(9vw, 19vh, 160px); } .login, .closed { padding-top: var(--s5); } }
+
+/* hoodie print faces (stand-ins for the real artwork) */
+.hd-word { font: 900 46px var(--display); letter-spacing: -.01em; }
+.hd-name { font: 10px var(--print); letter-spacing: .14em; }
+.hd-chest { font: 900 13px var(--display); }
+.hd-chest-sub { font: 700 4px var(--body); letter-spacing: .1em; }
+.hd-tiny { font: 600 7px var(--body); }
+.hd-year { font: italic 900 40px var(--display); letter-spacing: -.02em; }
+
+/* the cream tag keeps its own card-stock colours under the drop's dark controls */
+.item-tag .opt > span { background: transparent; border-color: #d9d3c8; color: #111; }
+.item-tag .opt input:checked + span { background: #111; color: #f3eee4; border-color: #111; }
+.item-tag .input, .item-tag .input:focus { background: transparent; color: #111; box-shadow: none; }
+.item-tag .input.print:focus { border-bottom-color: #111; }
+.item-tag .field-top > label, .item-tag .field-top .label { color: var(--tag-muted); }
+.item-tag .link { color: #111; }
+.item-tag .switch span { color: #111; }
+.item-tag .hint { color: var(--tag-muted); }
+.item-tag .hint.bad { color: #b42318; }
+
+/* phones: the whole item fits above the bottom bar */
+@media (max-width: 959px) {
+  .items { gap: 8px; }
+  .item-card { gap: 8px; }
+  .item-card > .stage-box { height: 206px; }
+  .marquee { margin-top: 8px; margin-bottom: 8px; }
+  .marquee .tick { font-size: 15px; padding: 6px 7px; }
+  .items .who { background: none; border: 0; padding: 0 2px; min-height: 0; font-size: 12.5px; }
 }
-/* the stage is night in both modes, so its small print is light */
-[data-skin='hoodies'] .stage-meta { color: rgba(234, 241, 248, .72); }
-[data-skin='hoodies'] .view-label { color: #eaf1f8; }
-[data-skin='hoodies'] .polo { filter: drop-shadow(0 14px 22px rgba(0, 0, 0, .45)); }
-/* sign-in and closed pages: a winter night, full bleed, snowing */
-[data-skin='hoodies'] .app.page-login,
-[data-skin='hoodies'] .app:has(.closed) {
-  min-height: 100svh; color: #eaf1f8; --ink: #eaf1f8; --muted: #a9b7cc; --paper: #0b1424;
-  background: radial-gradient(120% 90% at 72% 28%, #2b3d5f 0%, #0b1424 62%);
-}
-[data-skin='hoodies'] .app.page-login .topbar,
-[data-skin='hoodies'] .app:has(.closed) .topbar { background: transparent; border-bottom-color: rgba(255, 255, 255, .1); backdrop-filter: none; }
-[data-skin='hoodies'] .app.page-login .demo { background: #eaf1f8; color: #0b1424; }
-[data-skin='hoodies'] .login, [data-skin='hoodies'] .closed { position: relative; z-index: 1; }
-[data-skin='hoodies'] .ticker { background: rgba(255, 255, 255, .08); color: #eaf1f8; border-block: 1px solid rgba(255, 255, 255, .12); }
-[data-skin='hoodies'] .ticker i { background: #8fb8de; }
-[data-skin='hoodies'] .closed .btn.ghost { background: transparent; border-color: rgba(255, 255, 255, .35); color: #eaf1f8; }
+.hero { line-height: .86; }
 
 /* ---------- reduced motion: opacity only, short ---------- */
 @media (prefers-reduced-motion: reduce) {

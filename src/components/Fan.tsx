@@ -27,5 +27,5 @@ export default function Fan({ shirts, batch, className = '', snow = true }: { sh
 /** The colours the sign-in picture shows for each garment. */
 export const SHOWCASE: Record<'polo' | 'hoodie', string[]> = {
   polo: ['Navy Blue', 'Baby Pink', 'Black'],
-  hoodie: ['Navy Blue', 'Maroon', 'Grey'],
+  hoodie: ['Black', 'Brown', 'Cream'],
 }

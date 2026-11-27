@@ -2,7 +2,7 @@
 // when the phone can do WebGL and the student hasn't asked for reduced motion; otherwise a 2D
 // front/back flip. Hoodie rounds: the 2D hoodie for now (a 3D hoodie model comes later, same props).
 import { lazy, Suspense, useState } from 'react'
-import { swatch } from '../lib/colours'
+import { hoodieInk, swatch } from '../lib/colours'
 import type { Garment as GarmentKind } from '../lib/theme'
 
 const Shirt3D = lazy(() => import('./Shirt3D'))
@@ -98,42 +98,55 @@ export function Polo({ side, colour, printName, printBatch }: ArtProps) {
   )
 }
 
-// Hoodie silhouette in the same 300 x 320 box: body with dropped shoulders, long sleeves, ribbed cuffs and hem.
+// Oversized hoodie in the same 300 x 320 box, after the 2026-11-27 design sheet: dropped shoulders,
+// long sleeves with ribbed cuffs, ribbed hem. Back: "mandevian" across the shoulders, the name under a rule.
+// Front: MDI GURGAON on the chest, the batch year stacked large at the lower left.
+// shortcut: the lettering is a font stand-in, swap in the real artwork (SVG/PNG) when it arrives.
 const HOODIE =
-  'M92 52 L52 66 Q32 74 26 98 L8 252 Q24 264 46 258 L62 150 L62 290 Q150 302 238 290 L238 150 L254 258 Q276 264 292 252 L274 98 Q268 74 248 66 L208 52 Z'
+  'M98 50 L44 64 Q26 72 22 96 L10 262 Q26 274 50 268 L60 162 L60 284 Q150 296 240 284 L240 162 L250 268 Q274 274 290 262 L278 96 Q274 72 256 64 L202 50 Z'
 
 export function Hoodie({ side, colour, printName, printBatch }: ArtProps) {
   const s = swatch(colour)
+  const ink = hoodieInk(colour)
   const shade = `shade-hoodie-${side}`
-  const rib = 'rgba(0,0,0,.16)'
+  const rib = 'rgba(0,0,0,.18)'
+  const year = printBatch.replace(/\D/g, '').slice(-2) || '27'
   return (
     <svg viewBox="0 0 300 320" className="polo hoodie" role="img" aria-label={`${colour} hoodie, ${side}`}>
       <Shade id={shade} />
-      <path d={HOODIE} fill={s.base} stroke="rgba(0,0,0,.25)" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d={HOODIE} fill={s.base} stroke="rgba(0,0,0,.3)" strokeWidth="1.5" strokeLinejoin="round" />
       <path d={HOODIE} fill={`url(#${shade})`} />
-      {/* ribbed cuffs and hem */}
-      <path d="M11 236 L48 244 L46 258 Q24 264 8 252 Z" fill={rib} />
-      <path d="M289 236 L252 244 L254 258 Q276 264 292 252 Z" fill={rib} />
-      <path d="M62 274 Q150 286 238 274 L238 290 Q150 302 62 290 Z" fill={rib} />
-      <path d="M70 279 Q150 290 230 279" stroke="rgba(0,0,0,.12)" strokeWidth="1.5" strokeDasharray="2 5" fill="none" />
+      <path d="M12 246 L52 252 L50 268 Q26 274 10 262 Z" fill={rib} />
+      <path d="M288 246 L248 252 L250 268 Q274 274 290 262 Z" fill={rib} />
+      <path d="M60 268 Q150 280 240 268 L240 284 Q150 296 60 284 Z" fill={rib} />
+      <path d="M60 162 L60 120 M240 162 L240 120" stroke="rgba(0,0,0,.14)" strokeWidth="1.5" />
       {side === 'front' ? (
         <g>
-          {/* hood rim, the opening, drawstrings, kangaroo pocket */}
-          <path d="M94 62 Q90 14 150 10 Q210 14 206 62 Q196 76 186 72 Q150 30 114 72 Q104 76 94 62 Z" fill={s.base} stroke="rgba(0,0,0,.28)" strokeWidth="1.5" />
-          <path d="M114 72 Q150 30 186 72 Q150 100 114 72 Z" fill="rgba(0,0,0,.38)" />
-          <path d="M138 90 L134 150 M162 90 L166 150" stroke={s.sub} strokeWidth="3" strokeLinecap="round" />
-          <circle cx="134" cy="152" r="3.5" fill={s.sub} />
-          <circle cx="166" cy="152" r="3.5" fill={s.sub} />
-          <path d="M96 200 L204 200 L222 262 L78 262 Z" fill="rgba(0,0,0,.07)" stroke="rgba(0,0,0,.2)" strokeWidth="1.5" strokeLinejoin="round" />
-          <text x="150" y="184" textAnchor="middle" className="print-logo" fill={s.ink}>MDI</text>
+          {/* hood rim and opening */}
+          <path d="M100 56 Q96 10 150 6 Q204 10 200 56 Q190 72 178 68 Q150 26 122 68 Q110 72 100 56 Z" fill={s.base} stroke="rgba(0,0,0,.3)" strokeWidth="1.5" />
+          <path d="M122 68 Q150 26 178 68 Q150 92 122 68 Z" fill="rgba(0,0,0,.4)" />
+          <text x="196" y="104" textAnchor="middle" className="hd-chest" fill={ink}>MDI</text>
+          <text x="196" y="111" textAnchor="middle" className="hd-chest-sub" fill={ink}>GURGAON</text>
+          <text x="72" y="190" className="hd-tiny" fill={ink}>Future is us :)</text>
+          <text x="70" y="226" className="hd-year" fill={ink}>20</text>
+          <text x="70" y="262" className="hd-year" fill={ink}>{year}</text>
+          <circle cx="104" cy="232" r="22" fill="none" stroke={ink} strokeOpacity=".35" strokeWidth="2" />
+          <text x="86" y="276" className="hd-tiny" fill={ink}>batch</text>
         </g>
       ) : (
         <g>
-          {/* the hood lying flat on the back */}
-          <path d="M96 56 Q92 8 150 6 Q208 8 204 56 Q200 98 150 106 Q100 98 96 56 Z" fill={s.base} stroke="rgba(0,0,0,.28)" strokeWidth="1.5" />
-          <path d="M150 8 L150 104" stroke="rgba(0,0,0,.14)" strokeWidth="1.5" />
-          <path d="M96 56 Q92 8 150 6 Q208 8 204 56 Q200 98 150 106 Q100 98 96 56 Z" fill={`url(#${shade})`} />
-          <BackPrint colour={colour} printName={printName} printBatch={printBatch} top={22} />
+          {/* the hood lying on the back */}
+          <path d="M100 52 Q96 4 150 2 Q204 4 200 52 Q196 96 150 104 Q104 96 100 52 Z" fill={s.base} stroke="rgba(0,0,0,.3)" strokeWidth="1.5" />
+          <path d="M100 52 Q96 4 150 2 Q204 4 200 52 Q196 96 150 104 Q104 96 100 52 Z" fill={`url(#${shade})`} />
+          <text x="150" y="146" textAnchor="middle" className="hd-word" fill={ink} transform="skewX(-12) translate(31 0)">mandevian</text>
+          <line x1="104" y1="156" x2="196" y2="156" stroke={ink} strokeWidth="1.5" />
+          {printName && (
+            <text x="150" y="172" textAnchor="middle" className="hd-name" fill={ink} textLength={printName.length > 9 ? 120 : undefined} lengthAdjust="spacingAndGlyphs">
+              + {printName} +
+            </text>
+          )}
+          <circle cx="92" cy="122" r="4" fill="none" stroke={ink} strokeWidth="1.2" />
+          <circle cx="212" cy="168" r="4" fill="none" stroke={ink} strokeWidth="1.2" />
         </g>
       )}
     </svg>
