@@ -45,6 +45,16 @@ function useWide(min = 960) {
 /** "Classic MDI Navy Blue" -> "Classic MDI" (the colour is shown separately) */
 const lineName = (p: { name: string; colour: string }) => p.name.replace(p.colour, '').trim() || p.name
 
+/** The loud band under the top bar: the round's own title and note (its real closing time), on repeat. */
+function Marquee({ items }: { items: string[] }) {
+  const run = items.map((t) => <span key={t} className="tick">{t}<i aria-hidden="true" /></span>)
+  return (
+    <div className="marquee" role="note" aria-label={items.join('. ')}>
+      <div className="marquee-track" aria-hidden="true"><span>{run}</span><span>{run}</span></div>
+    </div>
+  )
+}
+
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 
 export default function Order({ form, user, onDone }: { form: OrderForm; user: AuthUser; onDone(r: SubmitResult, batch: string): void }) {
@@ -116,7 +126,8 @@ export default function Order({ form, user, onDone }: { form: OrderForm; user: A
           </li>
         ))}
       </ol>
-      <p className="progress-label" aria-hidden="true"><b>{STEPS[idx]?.label}</b> <span>{idx + 1} of 4</span></p>
+      <p className="progress-label"><b>{STEPS[idx]?.label}</b> <span>{idx + 1} of 4</span></p>
+      <Marquee items={[round.title, round.intro ?? '', 'Your name on the back'].filter(Boolean)} />
 
       <div className="step-body" key={step}>
         {step === 'details' && (
@@ -333,15 +344,6 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
 
   const numeral = batchNumeral(line.batch)
   const sw = swatch(product?.colour ?? '')
-  const stage = (
-    <div className="stage-box" style={{ ['--shirt' as string]: sw.base }}>
-      {theme.snow && <Snow density={wide ? 1 : 0.6} />}
-      {numeral && <span className="numeral" aria-hidden="true" key={numeral}>{numeral}</span>}
-      <ShirtStage compact={!wide} garment={theme.garment} colour={product?.colour ?? ''} printName={line.no_name ? '' : line.name.trim()} printBatch={line.batch}
-        view={view} onFlip={() => setView((v) => (v === 'front' ? 'back' : 'front'))} />
-    </div>
-  )
-
   return (
     <section className="items" aria-label="Pick your items">
       <h1 className="step-hero items-hero">{theme.itemsHead}</h1>
@@ -369,12 +371,19 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
       </ul>
 
       <div className="item-card" ref={card}>
-        <div className="item-top">
-          {stage}
-          <div className="pick">
-            <p className="item-no">Item {cur + 1} of up to {cap}</p>
-            <h2>{product?.colour ?? 'Pick a colour'}</h2>
-            <p className="pick-line">{product ? `${lineName(product)} · ${inr(product.price_inr)}` : ''}</p>
+        {/* the product shot: the garment big, with the colour, price and the student's name as stickers on it */}
+        <div className="stage-box" style={{ ['--shirt' as string]: sw.base }}>
+          {theme.snow && <Snow density={wide ? 1 : 0.6} />}
+          {numeral && <span className="numeral" aria-hidden="true" key={numeral}>{numeral}</span>}
+          <ShirtStage compact={!wide} garment={theme.garment} colour={product?.colour ?? ''} printName={line.no_name ? '' : line.name.trim()} printBatch={line.batch}
+            view={view} onFlip={() => setView((v) => (v === 'front' ? 'back' : 'front'))} />
+          {product && <p className="sticker sticker-price">{inr(product.price_inr)}</p>}
+          {!line.no_name && line.name.trim() && <p className="sticker sticker-name print-face" aria-hidden="true">{line.name.trim()}</p>}
+          <div className="stage-foot">
+            <div className="stage-title">
+              <h2>{product?.colour ?? 'Pick a colour'}</h2>
+              <p className="pick-line">{product ? lineName(product) : ''} · item {cur + 1} of {cap}</p>
+            </div>
             <Choice legend="Colour" hideLegend variant="swatches" options={form.products.map((p) => p.id)} value={product?.id ?? ''} error={errs.product}
               onChange={(id) => {
                 const p = form.products.find((x) => x.id === id)!
@@ -386,14 +395,14 @@ function ItemsStep({ form, draft, setDraft, total, onEditDetails, onPay }: {
                 const p = form.products.find((x) => x.id === id)!
                 return <><i className="swatch" style={{ background: swatch(p.colour).base }} /><span className="sr-only">{p.colour}, {p.name}, {inr(p.price_inr)}</span></>
               }} />
-            {(product?.description || photo) && (
-              <p className="pick-desc">
-                {product?.description}{' '}
-                {photo && <button type="button" className="link" onClick={() => setSheet('photo')}>See photo</button>}
-              </p>
-            )}
           </div>
         </div>
+        {(product?.description || photo) && (
+          <p className="pick-desc">
+            {product?.description}{' '}
+            {photo && <button type="button" className="link" onClick={() => setSheet('photo')}>See photo</button>}
+          </p>
+        )}
 
         {/* the item's options sit on a garment tag: punched hole, string up to the shirt, tear line, price at the foot */}
         <div className="item-opts item-tag">

@@ -49,10 +49,9 @@ export function createDemoApi(): Api {
   ]
   const hoodieSizes = ['S', 'M', 'L', 'XL', 'XXL']
   const hoodies = [
-    { id: 'h-navy', name: 'Winter Hoodie Navy', colour: 'Navy Blue', price_inr: 1299, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Fleece-lined pullover, MDI print on the back.', photo_paths: [] as string[], allow_custom_size: false } },
-    { id: 'h-maroon', name: 'Winter Hoodie Maroon', colour: 'Maroon', price_inr: 1299, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Fleece-lined pullover, MDI print on the back.', photo_paths: [] as string[], allow_custom_size: false } },
-    { id: 'h-grey', name: 'Winter Hoodie Grey', colour: 'Grey', price_inr: 1299, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Fleece-lined pullover, MDI print on the back.', photo_paths: [] as string[], allow_custom_size: false } },
-    { id: 'h-black', name: 'Winter Hoodie Black', colour: 'Black', price_inr: 1399, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Heavyweight fleece, MDI print on the back.', photo_paths: [] as string[], allow_custom_size: false } },
+    { id: 'h-black', name: 'Winter Hoodie Black', colour: 'Black', price_inr: 1299, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Oversized fleece hoodie. Mandevian print on the back, batch year on the front.', photo_paths: [] as string[], allow_custom_size: false } },
+    { id: 'h-brown', name: 'Winter Hoodie Brown', colour: 'Brown', price_inr: 1299, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Oversized fleece hoodie. Mandevian print on the back, batch year on the front.', photo_paths: [] as string[], allow_custom_size: false } },
+    { id: 'h-cream', name: 'Winter Hoodie Cream', colour: 'Cream', price_inr: 1299, sizes: hoodieSizes, ordered: 0, form: { shown: true, description: 'Oversized fleece hoodie. Mandevian print on the back, batch year on the front.', photo_paths: [] as string[], allow_custom_size: false } },
   ]
   // the demo round sells polos or hoodies depending on its theme
   const cur = () => (round.theme === 'hoodies' ? hoodies : tees)
