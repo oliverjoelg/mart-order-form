@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
-import Fan, { SHOWCASE } from './components/Fan'
 import Snow from './components/Snow'
+import SpinGarment from './components/SpinGarment'
 import { ApiCtx, Spinner, ToastProvider } from './components/ui'
 import type { Api, AuthUser } from './lib/api'
 import { friendlyError } from './lib/api'
-import { batchNumeral } from './lib/order'
+import type { Line } from './lib/order'
 import { redirectErrorMessage } from './lib/redirect'
 import { applySkin, resolveTheme, ThemeCtx, useTheme, type Theme, type ThemeId } from './lib/theme'
 import type { OrderForm, SubmitResult } from './lib/types'
 import { inr } from './lib/validate'
 import Admin from './pages/Admin'
 import MyOrders from './pages/MyOrders'
-import Order from './pages/Order'
+import Order from './screens/Order'
 
 type Tab = 'order' | 'orders' | 'admin'
 const readTab = (): Tab => {
@@ -46,7 +46,7 @@ function Shell({ api }: { api: Api }) {
   const [form, setForm] = useState<OrderForm | null>(null)
   const [error, setError] = useState<string | null>(() => readRedirectError())
   const [tab, setTab] = useState<Tab>(readTab)
-  const [placed, setPlaced] = useState<{ r: SubmitResult; batch: string } | null>(null)
+  const [placed, setPlaced] = useState<{ r: SubmitResult; first?: Line; colour: string } | null>(null)
   const [look, setLook] = useState<ThemeId>('tees')
   const theme: Theme = resolveTheme(look)
   useEffect(() => applySkin(theme), [theme])
@@ -135,11 +135,11 @@ function Shell({ api }: { api: Api }) {
         ) : tab === 'admin' && form.is_form_admin ? (
           <Admin onLook={() => void reloadLook()} />
         ) : placed ? (
-          <Done r={placed.r} batch={placed.batch} onOrders={() => go('orders')} onAgain={() => { setPlaced(null); void refresh() }} />
+          <Done r={placed.r} first={placed.first} colour={placed.colour} onOrders={() => go('orders')} onAgain={() => { setPlaced(null); void refresh() }} />
         ) : !form.round ? (
           <Closed teamOnly={form.team_only_round_open} onOrders={() => go('orders')} />
         ) : (
-          <Order form={form} user={user} onDone={(r, batch) => { setPlaced({ r, batch }); window.scrollTo(0, 0) }} />
+          <Order form={form} user={user} onDone={(r, first) => { setPlaced({ r, first, colour: form.products.find((p) => p.id === first?.product_id)?.colour ?? '' }); window.scrollTo(0, 0) }} />
         )}
       </main>
     </div>
@@ -147,11 +147,18 @@ function Shell({ api }: { api: Api }) {
   )
 }
 
-/** The sign-in picture: this theme's garments, the front one with a name on it. */
-function Showcase({ name = 'YOUR NAME' }: { name?: string }) {
+/** The sign-in picture: the round's garment turning slowly inside its orbit, with a name on the back. */
+const SHOW_COLOUR = { polo: 'Navy Blue', hoodie: 'Black' } as const
+function Showcase({ name = 'YOUR NAME', colour, batch = "PG'27" }: { name?: string; colour?: string; batch?: string }) {
   const theme = useTheme()
-  const [c, l, r] = SHOWCASE[theme.garment]
-  return <Fan shirts={[{ colour: c!, name }, { colour: l!, name: '' }, { colour: r!, name: '' }]} batch="PG'26" snow={false} />
+  return (
+    <div className="show" aria-hidden="true">
+      <div className="cz-orbit" />
+      <div className="cz-orbit two" />
+      <span className="sparkle s1" /><span className="sparkle s2" /><span className="sparkle s3" />
+      <SpinGarment auto garment={theme.garment} colour={colour ?? SHOW_COLOUR[theme.garment]} printName={name} printBatch={batch} label="" />
+    </div>
+  )
 }
 
 function Login({ api, error }: { api: Api; error: string | null }) {
@@ -162,7 +169,8 @@ function Login({ api, error }: { api: Api; error: string | null }) {
     <section className="login">
       {theme.snow && <div className="snow-layer"><Snow /></div>}
       <div className="login-copy">
-        <h1 className="hero">{theme.heroLines.map((w, i) => <span key={i}>{w}</span>)}</h1>
+        <p className="login-word" aria-hidden="true">{theme.word}</p>
+        <h1 className="hero">{theme.heroLines.join(' ')}</h1>
         <p className="lede">{theme.lede}</p>
         {IN_APP && (
           <p className="callout">
@@ -213,7 +221,8 @@ function Closed({ teamOnly, onOrders }: { teamOnly: boolean; onOrders(): void })
     <section className="closed">
       {theme.snow && <div className="snow-layer"><Snow /></div>}
       <div className="login-copy">
-        <h1 className="hero"><span>Orders</span> <span>are</span> <span>closed.</span></h1>
+        <p className="login-word" aria-hidden="true">{theme.word}</p>
+        <h1 className="hero">Orders are closed.</h1>
         <p className="lede">
           {teamOnly
             ? 'Orders are open to the MART team only right now. Watch the MART group for when they open to everyone.'
@@ -226,22 +235,19 @@ function Closed({ teamOnly, onOrders }: { teamOnly: boolean; onOrders(): void })
   )
 }
 
-function Done({ r, batch, onOrders, onAgain }: { r: SubmitResult; batch: string; onOrders(): void; onAgain(): void }) {
+function Done({ r, first, colour, onOrders, onAgain }: { r: SubmitResult; first?: Line; colour: string; onOrders(): void; onAgain(): void }) {
   const code = r.order_id.replace(/-/g, '').slice(0, 8).toUpperCase()
   return (
     <section className="done-screen">
-      <div className="done-tag tag" role="status">
-        <span className="tag-hole" aria-hidden="true" />
-        <span className="tag-string" aria-hidden="true" />
-        <span className="numeral" aria-hidden="true">{batchNumeral(batch) || '✓'}</span>
-        <h1>Order placed.</h1>
+      <Showcase colour={colour} batch={first?.batch} name={first && !first.no_name ? first.name.trim() : ''} />
+      <div className="done-copy" role="status">
+        <p className="login-word" aria-hidden="true">dropped</p>
+        <h1 className="hero">Order placed.</h1>
         <dl className="kv">
           <div><dt>Order</dt><dd className="print-face">{code}</dd></div>
           <div><dt>Items</dt><dd>{r.items}</dd></div>
           <div className="kv-total"><dt>Paid</dt><dd>{inr(r.total_inr)}</dd></div>
         </dl>
-      </div>
-      <div className="done-copy">
         <p className="lede">MART checks your payment next. Each item moves to “Ready to collect” in My orders, and MART calls you when it's there.</p>
         <div className="actions">
           <button type="button" className="btn primary" onClick={onOrders}>See my orders</button>

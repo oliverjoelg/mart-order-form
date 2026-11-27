@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import type { Api } from './lib/api'
 import './styles.css'
+import './y2k.css'
 
 // `npm run dev:demo` runs on made-up data with no accounts; the demo code is not in the production bundle.
 async function createApi(): Promise<Api> {

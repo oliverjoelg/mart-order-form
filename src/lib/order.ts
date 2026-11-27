@@ -1,7 +1,7 @@
-// The order being built on the Items step, and the draft kept in this browser.
-// Pure functions only (tested in order.test.ts); the screens live in pages/Order.tsx.
+// The order being built in the customiser, and the draft kept in this browser.
+// Pure functions only (tested in order.test.ts); the screens live in src/screens/.
 import type { CartItem, FormProduct, FormRound, OrderForm, StudentDetails } from './types'
-import { MAX_ITEMS, customSizeError, detailsErrors, printNameError } from './validate'
+import { MAX_ITEMS, customSizeError, detailsErrors, printNameError, txnError } from './validate'
 
 /** One item while it's being edited. Becomes a CartItem on submit. */
 export interface Line {
@@ -17,14 +17,19 @@ export interface Line {
   batch: string
 }
 
-export type Step = 'details' | 'items' | 'payment' | 'review'
+/** Two screens: the customiser (with the bag over it) and the one-page checkout. */
+export type Step = 'customise' | 'checkout'
 
 export interface Draft {
-  v: 2
+  v: 3
   step: Step
   details: StudentDetails
-  lines: Line[]
-  cur: number
+  /** items added to the bag, in order */
+  bag: Line[]
+  /** the item on the stage, not in the bag yet (or a copy of the bag item being edited) */
+  wip: Line
+  /** key of the bag item the stage is editing; null while building a new one */
+  editing: string | null
   txn: string
   shot: string | null
 }
@@ -122,15 +127,30 @@ export function initialDetails(form: OrderForm): StudentDetails {
 
 /**
  * The products on sale can change while the form is open (MART edits the round, or the form reloads
- * after the student comes back from their UPI app). Drops items whose product is gone, keeps at least
- * one item to edit, and keeps `cur` in range. Returns the same object when nothing changed.
+ * after the student comes back from their UPI app). Drops bag items whose product is gone and gives
+ * the stage a product that's on sale. Returns the same object when nothing changed.
  */
-export function fitToForm<T extends { lines: Line[]; cur: number }>(d: T, form: OrderForm): T {
+export function fitToForm(d: Draft, form: OrderForm): Draft {
+  if (!form.products.length) return d
   const onSale = (id: string) => form.products.some((p) => p.id === id)
-  if (d.lines.every((l) => onSale(l.product_id)) && (d.lines.length || !form.products.length)) return d
-  let lines = d.lines.filter((l) => onSale(l.product_id))
-  if (!lines.length && form.products.length) lines = [newLine(form)]
-  return { ...d, lines, cur: Math.min(d.cur, Math.max(0, lines.length - 1)) }
+  if (d.bag.every((l) => onSale(l.product_id)) && onSale(d.wip.product_id)) return d
+  const bag = d.bag.filter((l) => onSale(l.product_id))
+  const editing = bag.some((l) => l.key === d.editing) ? d.editing : null
+  const wip = onSale(d.wip.product_id) && (editing || !d.editing) ? d.wip : newLine(form, bag[bag.length - 1])
+  return { ...d, bag, wip, editing, step: d.step === 'checkout' && !bag.length ? 'customise' : d.step }
+}
+
+/** Everything the checkout needs before Submit lights up. */
+export function checkoutErrors(d: Draft, form: OrderForm): string[] {
+  const e: string[] = []
+  if (!d.bag.length) e.push('Your bag is empty.')
+  const bad = firstBadLine(d.bag, form)
+  if (bad !== -1) e.push(`Item ${bad + 1}: ${Object.values(lineErrors(d.bag[bad]!, form))[0]}`)
+  if (!detailsReady(d.details, form.round!)) e.push('Fill in your details.')
+  if (!form.qr) e.push("Payment isn't open yet.")
+  if (txnError(d.txn)) e.push('Add the UPI transaction ID.')
+  if (!d.shot) e.push('Add the payment screenshot.')
+  return e
 }
 
 // ---- draft kept in this browser ----
@@ -151,42 +171,47 @@ export function clearDrafts(store: Pick<Storage, 'length' | 'key' | 'removeItem'
 }
 
 interface OldDraft {
-  step?: Step
+  v?: number
+  step?: string
   details?: StudentDetails
   cart?: CartItem[]
+  lines?: Line[]
+  bag?: Line[]
+  wip?: Line
+  editing?: string | null
   txn?: string
   shot?: string | null
 }
 
 /**
- * Reads a saved draft (current or the pre-redesign shape) and fits it to the form as it is now:
- * items whose product left the form are dropped. Returns a fresh draft when there's nothing usable.
+ * Reads a saved draft (this shape, the four-step one, or the pre-redesign cart) and fits it to the
+ * form as it is now: items whose product left the form are dropped. Fresh draft when nothing usable.
  */
 export function restoreDraft(raw: string | null, form: OrderForm): Draft {
   const details = initialDetails(form)
-  const fresh = (): Draft => ({
-    v: 2,
-    step: detailsReady(details, form.round!) ? 'items' : 'details',
-    details,
-    lines: form.products.length ? [newLine(form)] : [],
-    cur: 0,
-    txn: '',
-    shot: null,
-  })
-  let d: (Partial<Draft> & OldDraft) | null = null
+  const fresh: Draft = { v: 3, step: 'customise', details, bag: [], wip: newLine(form), editing: null, txn: '', shot: null }
+  let d: OldDraft | null = null
   try {
     d = raw ? JSON.parse(raw) : null
   } catch {
     d = null
   }
-  if (!d || typeof d !== 'object') return fresh()
+  if (!d || typeof d !== 'object') return fresh
 
   const onSale = (id: string) => form.products.some((p) => p.id === id)
-  let lines: Line[]
-  if (d.v === 2 && Array.isArray(d.lines)) {
-    lines = d.lines.filter((l) => onSale(l.product_id))
+  const ok = (l: Line) => Object.keys(lineErrors(l, form)).length === 0
+  let bag: Line[]
+  let wip: Line | undefined
+  if (d.v === 3 && Array.isArray(d.bag)) {
+    bag = d.bag.filter((l) => onSale(l.product_id))
+    wip = d.wip && onSale(d.wip.product_id) ? d.wip : undefined
+  } else if (d.v === 2 && Array.isArray(d.lines)) {
+    // four-step drafts: finished items go in the bag, the first unfinished one goes on the stage
+    const lines = d.lines.filter((l) => onSale(l.product_id))
+    bag = lines.filter(ok)
+    wip = lines.find((l) => !ok(l))
   } else {
-    lines = (d.cart ?? []).filter((c) => onSale(c.product_id)).map((c) => {
+    bag = (d.cart ?? []).filter((c) => onSale(c.product_id)).map((c) => {
       const p = form.products.find((x) => x.id === c.product_id)!
       const listed = p.sizes.includes(c.size)
       return {
@@ -195,15 +220,13 @@ export function restoreDraft(raw: string | null, form: OrderForm): Draft {
       }
     })
   }
-  lines = lines.slice(0, itemCap(form.round!))
-  if (!lines.length && form.products.length) lines = [newLine(form)]
-  const det = { ...details, ...(d.details ?? {}) }
-  let step: Step = d.step && ['details', 'items', 'payment', 'review'].includes(d.step) ? d.step : 'details'
-  if (step !== 'details' && !detailsReady(det, form.round!)) step = 'details'
-  if ((step === 'payment' || step === 'review') && firstBadLine(lines, form) !== -1) step = 'items'
+  bag = bag.slice(0, itemCap(form.round!))
+  const editing = d.v === 3 && bag.some((l) => l.key === d!.editing) ? d.editing ?? null : null
+  const wantCheckout = d.step === 'checkout' || d.step === 'payment' || d.step === 'review'
+  const step: Step = wantCheckout && bag.length && firstBadLine(bag, form) === -1 ? 'checkout' : 'customise'
   return {
-    v: 2, step, details: det, lines,
-    cur: Math.min(Math.max(0, d.v === 2 ? d.cur ?? 0 : lines.length - 1), Math.max(0, lines.length - 1)),
+    v: 3, step, details: { ...details, ...(d.details ?? {}) }, bag,
+    wip: wip ?? newLine(form, bag[bag.length - 1]), editing,
     txn: d.txn ?? '', shot: d.shot ?? null,
   }
 }
